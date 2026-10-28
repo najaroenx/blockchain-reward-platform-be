@@ -1,0 +1,10 @@
+{
+  "name": "@libs/logger",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "pino": "^10.4.0"
+  },
+  "type": "module"
+}

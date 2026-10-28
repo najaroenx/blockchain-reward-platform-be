@@ -1,0 +1,10 @@
+{
+  "name": "@libs/config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "type": "module"
+}

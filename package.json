@@ -1,0 +1,32 @@
+{
+  "name": "blockchain-reward-platform",
+  "private": true,
+  "engines": {
+    "node": ">=22.13",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "env:init": "node scripts/init-env.mjs",
+    "dev": "pnpm -r --parallel --stream run dev",
+    "dev:api": "pnpm --filter @app/api run dev",
+    "dev:worker": "pnpm --filter @app/worker run dev",
+    "dev:indexer": "pnpm --filter @app/indexer run dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@swc-node/register": "1.12.1",
+    "@swc/core": "1.16.20",
+    "@types/node": "^22.18.9",
+    "eslint": "^10.13.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "4.16.1",
+    "pino": "^10.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^5.0.5"
+  },
+  "type": "module"
+}
