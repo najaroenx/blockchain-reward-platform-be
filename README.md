@@ -2,7 +2,7 @@
 
 Backend monorepo สำหรับระบบแต้มสะสมและตลาดคูปองบน EVM แบ่งเป็น 3 process: HTTP API, worker และ indexer ใช้ TypeScript, NestJS, pnpm workspace และ PostgreSQL connection string
 
-> สถานะปัจจุบัน: API มี `GET /healthz`; worker และ indexer เริ่ม process และตรวจ config ได้แล้ว แต่ยังไม่มีการเชื่อมต่อ queue, KMS, database หรืออ่านธุรกรรมจาก chain จริง
+> API มี `GET /healthz` และ coupon types ที่เปิดผ่าน feature flag โดยเชื่อม PostgreSQL และอ่าน supply ผ่าน RPC ได้ ส่วน worker และ indexer ยังไม่ประมวลผลคิวหรือส่งธุรกรรม ดู [วิธีเปิดใช้ BE-0602](docs/BE-0602.md)
 
 ## สิ่งที่ต้องมี
 
@@ -24,7 +24,7 @@ pnpm install
 pnpm env:init
 ```
 
-`pnpm env:init` จะคัดลอกไฟล์ `*.example` ที่มีอยู่ โดยไม่เขียนทับไฟล์เดิม ขณะนี้ repository มี `.env.example` เพียงไฟล์เดียว จึงสร้าง `.env` ให้เท่านั้น ให้จัดค่าลงไฟล์ตาม role ด้านล่าง และสร้าง `.env.api`, `.env.worker` กับ `.env.indexer` เอง
+`pnpm env:init` จะคัดลอก `.env.example`, `.env.api.example`, `.env.worker.example` และ `.env.indexer.example` โดยไม่เขียนทับไฟล์เดิม ตรวจค่าตาม role ด้านล่างก่อนเริ่ม process สำหรับ coupon types ให้ตั้งค่าเพิ่มเติมตาม [BE-0602](docs/BE-0602.md)
 
 | ไฟล์ | ตัวแปร | ตัวอย่าง/ค่าเริ่มต้น |
 |---|---|---|

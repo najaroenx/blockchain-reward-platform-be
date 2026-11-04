@@ -27,7 +27,20 @@ export const FORBIDDEN: Record<Role, readonly string[]> = {
   indexer: ['KMS_KEY_ARN', 'KMS_REGION'],
 }
 
-const api = z.object({ ...shared, PORT: z.coerce.number().int().positive().default(3000) })
+const api = z.object({
+  ...shared, PORT: z.coerce.number().int().positive().default(3000),
+  COUPON_TYPES_ENABLED: z.enum(['true', 'false']).default('false'),
+  COUPON_JWT_PUBLIC_KEY: z.string().min(1).optional(),
+  COUPON_JWT_ISSUER: z.string().min(1).optional(),
+  COUPON_JWT_AUDIENCE: z.string().min(1).optional(),
+  COUPON_RPC_URL: z.url().optional(),
+  COUPON_CHAIN_ID: z.coerce.number().int().positive().safe().optional(),
+}).superRefine((env, ctx) => {
+  if (env.COUPON_TYPES_ENABLED !== 'true') return
+  for (const field of ['COUPON_JWT_PUBLIC_KEY', 'COUPON_JWT_ISSUER', 'COUPON_JWT_AUDIENCE', 'COUPON_RPC_URL', 'COUPON_CHAIN_ID'] as const) {
+    if (env[field] === undefined) ctx.addIssue({ code: 'custom', path: [field], message: 'จำเป็นเมื่อเปิด coupon types' })
+  }
+})
 const worker = z.object({
   ...shared, ...chain,
   KMS_KEY_ARN: z.string().min(1),
