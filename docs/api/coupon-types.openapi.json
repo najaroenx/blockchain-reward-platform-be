@@ -1,0 +1,414 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BE-0602 · Coupon Types",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/v1/coupon-types": {
+      "post": {
+        "operationId": "createCouponType",
+        "summary": "รับคำขอสร้างประเภทคูปอง",
+        "description": "ADMIT: บันทึก coupon_type, operation, step, outbox และ event ใน transaction เดียว; ไม่ mint และไม่สร้างรหัส",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCouponTypeRequest"
+              },
+              "example": {
+                "name": "คูปองส่วนลด 100 บาท",
+                "faceValue": "100000000000000000000",
+                "totalSupply": 500,
+                "startsAt": "2027-01-01T00:00:00+07:00",
+                "expiresAt": "2027-03-31T23:59:59+07:00"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "รับคำขอแล้ว",
+            "headers": {
+              "Location": {
+                "schema": { "type": "string" },
+                "description": "URL ของ operation ที่รับไว้"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponTypeAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED หรือ IDEMPOTENCY_KEY_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "NAME_TAKEN, IDEMPOTENCY_KEY_REUSED หรือ IDEMPOTENCY_KEY_IN_PROGRESS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "MERCHANT_WALLET_NOT_READY",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listCouponTypes",
+        "summary": "ดูประเภทคูปองของร้านที่ยืนยันตัวตน",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUESTED",
+                "LIVE",
+                "FAILED",
+                "RETIRED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการประเภทคูปอง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "couponTypes"
+                  ],
+                  "properties": {
+                    "couponTypes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CouponType"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "COUPON_CHAIN_UNAVAILABLE หรือ COUPON_SUPPLY_INCONSISTENT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "CreateCouponTypeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "faceValue",
+          "totalSupply",
+          "startsAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "NFC แล้ว trim; ชื่อซ้ำในร้านเดียวไม่ได้ (ยกเว้น FAILED)"
+          },
+          "faceValue": {
+            "type": "string",
+            "pattern": "^[0-9]{1,78}$",
+            "description": "จำนวนเต็มไม่ติดลบในหน่วยฐาน THB ไม่เกิน uint256; เป็นข้อมูลธุรกิจ ไม่ส่งเข้า createCouponType"
+          },
+          "totalSupply": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "เพดานฝั่ง Backend ไม่ใช่ supply ที่ mint แล้วบน chain"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.0+)?\\+07:00$",
+            "description": "เวลาไทย Asia/Bangkok (+07:00); startsAt < expiresAt; expiresAt ต้องอยู่ในอนาคต (ยกเว้น replay ที่รับไว้แล้ว)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.0+)?\\+07:00$",
+            "description": "เวลาไทย Asia/Bangkok (+07:00); startsAt < expiresAt; expiresAt ต้องอยู่ในอนาคต (ยกเว้น replay ที่รับไว้แล้ว)"
+          }
+        }
+      },
+      "CouponTypeAccepted": {
+        "type": "object",
+        "required": [
+          "couponTypeId",
+          "name",
+          "faceValue",
+          "totalSupply",
+          "startsAt",
+          "expiresAt",
+          "status",
+          "operationId"
+        ],
+        "properties": {
+          "couponTypeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "NFC แล้ว trim; ชื่อซ้ำในร้านเดียวไม่ได้ (ยกเว้น FAILED)"
+          },
+          "faceValue": {
+            "type": "string",
+            "pattern": "^[0-9]{1,78}$",
+            "description": "จำนวนเต็มไม่ติดลบในหน่วยฐาน THB ไม่เกิน uint256; เป็นข้อมูลธุรกิจ ไม่ส่งเข้า createCouponType"
+          },
+          "totalSupply": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "เพดานฝั่ง Backend ไม่ใช่ supply ที่ mint แล้วบน chain"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.0+)?\\+07:00$",
+            "description": "เวลาไทย Asia/Bangkok (+07:00); startsAt < expiresAt; expiresAt ต้องอยู่ในอนาคต (ยกเว้น replay ที่รับไว้แล้ว)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.0+)?\\+07:00$",
+            "description": "เวลาไทย Asia/Bangkok (+07:00); startsAt < expiresAt; expiresAt ต้องอยู่ในอนาคต (ยกเว้น replay ที่รับไว้แล้ว)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUESTED"
+            ]
+          },
+          "operationId": {
+            "type": "string"
+          }
+        }
+      },
+      "CouponType": {
+        "type": "object",
+        "required": [
+          "couponTypeId",
+          "name",
+          "faceValue",
+          "totalSupply",
+          "startsAt",
+          "expiresAt",
+          "status",
+          "issuedCount",
+          "remainingSupply",
+          "chain"
+        ],
+        "properties": {
+          "couponTypeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "NFC แล้ว trim; ชื่อซ้ำในร้านเดียวไม่ได้ (ยกเว้น FAILED)"
+          },
+          "faceValue": {
+            "type": "string",
+            "pattern": "^[0-9]{1,78}$",
+            "description": "จำนวนเต็มไม่ติดลบในหน่วยฐาน THB ไม่เกิน uint256; เป็นข้อมูลธุรกิจ ไม่ส่งเข้า createCouponType"
+          },
+          "totalSupply": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "เพดานฝั่ง Backend ไม่ใช่ supply ที่ mint แล้วบน chain"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.0+)?\\+07:00$",
+            "description": "เวลาไทย Asia/Bangkok (+07:00); startsAt < expiresAt; expiresAt ต้องอยู่ในอนาคต (ยกเว้น replay ที่รับไว้แล้ว)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.0+)?\\+07:00$",
+            "description": "เวลาไทย Asia/Bangkok (+07:00); startsAt < expiresAt; expiresAt ต้องอยู่ในอนาคต (ยกเว้น replay ที่รับไว้แล้ว)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUESTED",
+              "LIVE",
+              "FAILED",
+              "RETIRED"
+            ]
+          },
+          "issuedCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "อ่าน getTotalSupply(typeId) จาก contract: minted ลบ withdrawn; redeem ไม่ลดค่านี้"
+          },
+          "remainingSupply": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "chain": {
+            "type": "object",
+            "nullable": true,
+            "required": [
+              "contractAddress",
+              "chainTypeId"
+            ],
+            "properties": {
+              "contractAddress": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{40}$"
+              },
+              "chainTypeId": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

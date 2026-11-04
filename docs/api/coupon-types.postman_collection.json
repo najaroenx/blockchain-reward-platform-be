@@ -1,0 +1,129 @@
+{
+  "info": {
+    "name": "BE-0602 Coupon Types",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Create type",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));",
+              "const expiry = new Date(Date.now() + 86400000);",
+              "const thai = new Date(expiry.getTime() + 7 * 3600000).toISOString().slice(0, 19) + '+07:00';",
+              "pm.collectionVariables.set('expiresAt', thai);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('accepted', () => pm.response.to.have.status(202));",
+              "pm.collectionVariables.set('acceptedResponse', pm.response.text());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman {{idempotencyKey}}\",\n  \"faceValue\": \"100000000000000000000\",\n  \"totalSupply\": 500,\n  \"startsAt\": \"2020-01-01T00:00:00+07:00\",\n  \"expiresAt\": \"{{expiresAt}}\"\n}"
+        },
+        "url": "{{baseUrl}}/v1/coupon-types"
+      }
+    },
+    {
+      "name": "Replay type",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('accepted replay', () => pm.response.to.have.status(202));",
+              "pm.test('same bytes', () => pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get('acceptedResponse')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman {{idempotencyKey}}\",\n  \"faceValue\": \"100000000000000000000\",\n  \"totalSupply\": 500,\n  \"startsAt\": \"2020-01-01T00:00:00+07:00\",\n  \"expiresAt\": \"{{expiresAt}}\"\n}"
+        },
+        "url": "{{baseUrl}}/v1/coupon-types"
+      }
+    },
+    {
+      "name": "List types",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('listed', () => pm.response.to.have.status(200));",
+              "pm.test('Thai timezone', () => pm.response.json().couponTypes.forEach(t => { pm.expect(t.startsAt).to.match(/\\+07:00$/); pm.expect(t.expiresAt).to.match(/\\+07:00$/); }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v1/coupon-types"
+      }
+    }
+  ]
+}
