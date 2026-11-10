@@ -119,3 +119,4 @@ test/          unit tests สำหรับ config และ logger
 ```
 
 ห้าม import ข้ามโฟลเดอร์ `apps/`; โค้ดที่ใช้ร่วมกันควรอยู่ใน `libs/` เพื่อแยกขอบเขตของแต่ละ process
+https://encore.dev/articles/nestjs-project-structure-best-practices
