@@ -24,8 +24,10 @@ src/marketplace/
   main.py                          composition root, HTTP app, lifespan, error mapping
   settings.py                      role-specific configuration
   logging_config.py                JSON logging and secret redaction
-  worker.py                        worker entry point; execution disabled
-  indexer.py                       indexer entry point; execution disabled
+  worker/
+    main.py                        shared worker entry point; execution disabled
+  indexer/
+    main.py                        shared indexer entry point; execution disabled
   listings/
     domain/entities.py             immutable listing and marketplace values
     application/use_cases.py       catalog availability and not-found behavior
@@ -64,7 +66,8 @@ Feature infrastructure owns its ORM models and queries. Shared infrastructure do
 features. Database migrations explicitly register the implemented feature models.
 
 The system remains a modular monolith. CLI entry points are `reward-api`, `reward-worker`, and
-`reward-indexer`, targeting `marketplace.main`, `marketplace.worker`, and `marketplace.indexer`.
+`reward-indexer`, targeting `marketplace.main`, `marketplace.worker.main`, and
+`marketplace.indexer.main`.
 Configuration, scripts, migrations, and tests stay at the repository root.
 
 Within listings, domain objects describe listing values. Query DTOs and availability errors belong

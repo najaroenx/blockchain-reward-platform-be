@@ -146,8 +146,10 @@ blockchain-reward-platform-be/
         ├── main.py                  # ประกอบแอปและ dependencies ของ features
         ├── settings.py              # Config แยกตาม process
         ├── logging_config.py        # JSON logs และปิดข้อมูลลับ
-        ├── worker.py                # ตอนนี้ตรวจ config เท่านั้น
-        ├── indexer.py               # ตอนนี้ตรวจ config เท่านั้น
+        ├── worker/                  # Service กลางสำหรับส่งธุรกรรม
+        │   └── main.py              # ตอนนี้ตรวจ config เท่านั้น
+        ├── indexer/                 # Service กลางสำหรับอ่าน chain
+        │   └── main.py              # ตอนนี้ตรวจ config เท่านั้น
         ├── listings/
         │   ├── domain/
         │   │   └── entities.py      # Listing และ Marketplace

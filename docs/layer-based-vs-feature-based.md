@@ -43,8 +43,10 @@ src/marketplace/
 ├── main.py
 ├── settings.py
 ├── logging_config.py
-├── worker.py
-├── indexer.py
+├── worker/
+│   └── main.py
+├── indexer/
+│   └── main.py
 ├── listings/
 │   ├── domain/
 │   ├── application/

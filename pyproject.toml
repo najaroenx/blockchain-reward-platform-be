@@ -25,8 +25,8 @@ dev = [
 
 [project.scripts]
 reward-api = "marketplace.main:main"
-reward-worker = "marketplace.worker:main"
-reward-indexer = "marketplace.indexer:main"
+reward-worker = "marketplace.worker.main:main"
+reward-indexer = "marketplace.indexer.main:main"
 reward-env-init = "marketplace.settings:init_env"
 
 [build-system]
