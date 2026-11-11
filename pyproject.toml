@@ -1,0 +1,125 @@
+[project]
+name = "blockchain-reward-platform"
+version = "0.1.0"
+description = "Python backend for the coupon marketplace and loyalty platform"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "alembic>=1.14,<2",
+  "fastapi>=0.115,<1",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic>=2.10,<3",
+  "python-dotenv>=1.0,<2",
+  "sqlalchemy>=2.0.36,<2.1",
+  "uvicorn>=0.32,<1",
+]
+
+[dependency-groups]
+dev = [
+  "httpx2>=2.13,<3",
+  "import-linter>=2.1,<3",
+  "mypy>=1.14,<2",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
+]
+
+[project.scripts]
+reward-api = "marketplace.main:main"
+reward-worker = "marketplace.worker:main"
+reward-indexer = "marketplace.indexer:main"
+reward-env-init = "marketplace.settings:init_env"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/marketplace"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/bootstrap.py" = ["UP036"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+plugins = ["pydantic.mypy"]
+
+[tool.importlinter]
+root_package = "marketplace"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Feature domains are independent of application and adapters"
+type = "forbidden"
+source_modules = ["marketplace.listings.domain", "marketplace.coupons.domain"]
+forbidden_modules = [
+  "fastapi", "pydantic", "sqlalchemy",
+  "marketplace.listings.application", "marketplace.coupons.application",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure",
+  "marketplace.infrastructure",
+  "marketplace.listings.presentation", "marketplace.coupons.presentation",
+  "marketplace.settings", "marketplace.logging_config",
+  "marketplace.main", "marketplace.worker", "marketplace.indexer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Feature applications depend on domain and ports"
+type = "forbidden"
+source_modules = ["marketplace.listings.application", "marketplace.coupons.application"]
+forbidden_modules = [
+  "fastapi", "pydantic", "sqlalchemy",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure",
+  "marketplace.infrastructure",
+  "marketplace.listings.presentation", "marketplace.coupons.presentation",
+  "marketplace.settings", "marketplace.logging_config",
+  "marketplace.main", "marketplace.worker", "marketplace.indexer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Feature presentations do not construct infrastructure"
+type = "forbidden"
+source_modules = ["marketplace.listings.presentation", "marketplace.coupons.presentation"]
+forbidden_modules = [
+  "sqlalchemy", "marketplace.infrastructure",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure",
+  "marketplace.main", "marketplace.worker", "marketplace.indexer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Feature infrastructure does not depend on presentation"
+type = "forbidden"
+source_modules = ["marketplace.listings.infrastructure", "marketplace.coupons.infrastructure"]
+forbidden_modules = [
+  "fastapi", "marketplace.listings.presentation", "marketplace.coupons.presentation",
+  "marketplace.main", "marketplace.worker", "marketplace.indexer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Settings and logging are independent of application layers"
+type = "forbidden"
+source_modules = ["marketplace.settings", "marketplace.logging_config"]
+forbidden_modules = [
+  "marketplace.listings", "marketplace.coupons", "marketplace.infrastructure",
+  "marketplace.main", "marketplace.worker", "marketplace.indexer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Shared infrastructure is independent of features"
+type = "forbidden"
+source_modules = ["marketplace.infrastructure"]
+forbidden_modules = [
+  "fastapi", "marketplace.listings", "marketplace.coupons",
+  "marketplace.main", "marketplace.worker", "marketplace.indexer",
+]
