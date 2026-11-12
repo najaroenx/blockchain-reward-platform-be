@@ -36,7 +36,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/marketplace"]
+packages = ["src/marketplace", "src/auth", "src/idempotency"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -59,19 +59,19 @@ files = ["src"]
 plugins = ["pydantic.mypy"]
 
 [tool.importlinter]
-root_package = "marketplace"
+root_packages = ["marketplace", "auth", "idempotency"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Feature domains are independent of application and adapters"
 type = "forbidden"
-source_modules = ["marketplace.listings.domain", "marketplace.coupons.domain", "marketplace.auth.domain"]
+source_modules = ["marketplace.listings.domain", "marketplace.coupons.domain", "auth.domain"]
 forbidden_modules = [
   "fastapi", "pydantic", "sqlalchemy",
-  "marketplace.listings.application", "marketplace.coupons.application", "marketplace.auth.application",
-  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure",
-  "marketplace.infrastructure",
-  "marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation",
+  "marketplace.listings.application", "marketplace.coupons.application", "auth.application",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "auth.infrastructure",
+  "marketplace.infrastructure", "idempotency",
+  "marketplace.listings.presentation", "marketplace.coupons.presentation", "auth.presentation",
   "marketplace.settings", "marketplace.logging_config",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
@@ -79,12 +79,12 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "Feature applications depend on domain and ports"
 type = "forbidden"
-source_modules = ["marketplace.listings.application", "marketplace.coupons.application", "marketplace.auth.application"]
+source_modules = ["marketplace.listings.application", "marketplace.coupons.application", "auth.application"]
 forbidden_modules = [
   "fastapi", "pydantic", "sqlalchemy",
-  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure",
-  "marketplace.infrastructure",
-  "marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "auth.infrastructure",
+  "marketplace.infrastructure", "idempotency",
+  "marketplace.listings.presentation", "marketplace.coupons.presentation", "auth.presentation",
   "marketplace.settings", "marketplace.logging_config",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
@@ -92,19 +92,19 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "Feature presentations do not construct infrastructure"
 type = "forbidden"
-source_modules = ["marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation"]
+source_modules = ["marketplace.listings.presentation", "marketplace.coupons.presentation", "auth.presentation"]
 forbidden_modules = [
-  "sqlalchemy", "marketplace.infrastructure",
-  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure",
+  "sqlalchemy", "marketplace.infrastructure", "idempotency",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "auth.infrastructure",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Feature infrastructure does not depend on presentation"
 type = "forbidden"
-source_modules = ["marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure"]
+source_modules = ["marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "auth.infrastructure"]
 forbidden_modules = [
-  "fastapi", "marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation",
+  "fastapi", "marketplace.listings.presentation", "marketplace.coupons.presentation", "auth.presentation",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
 
@@ -113,15 +113,15 @@ name = "Settings and logging are independent of application layers"
 type = "forbidden"
 source_modules = ["marketplace.settings", "marketplace.logging_config"]
 forbidden_modules = [
-  "marketplace.listings", "marketplace.coupons", "marketplace.auth", "marketplace.infrastructure",
+  "marketplace.listings", "marketplace.coupons", "auth", "idempotency", "marketplace.infrastructure",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Shared infrastructure is independent of features"
 type = "forbidden"
-source_modules = ["marketplace.infrastructure"]
+source_modules = ["marketplace.infrastructure", "idempotency"]
 forbidden_modules = [
-  "fastapi", "marketplace.listings", "marketplace.coupons", "marketplace.auth",
+  "fastapi", "marketplace.listings", "marketplace.coupons", "auth",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]

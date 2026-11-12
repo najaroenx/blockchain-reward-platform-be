@@ -3,17 +3,17 @@ from collections.abc import Callable
 import pytest
 from sqlalchemy.orm import Session
 
-from marketplace.auth.application.exceptions import (
+from auth.application.exceptions import (
     AccountLocked,
     InvalidCredentials,
     RefreshTokenRevoked,
     SessionCompromised,
 )
-from marketplace.auth.application.ports import TokenSigner
-from marketplace.auth.application.use_cases import AuthService, LoginContext
-from marketplace.auth.infrastructure.hashing import Argon2PasswordHasher
-from marketplace.auth.infrastructure.models import MerchantAdmin
-from marketplace.auth.infrastructure.repository import (
+from auth.application.ports import TokenSigner
+from auth.application.use_cases import AuthService, LoginContext
+from auth.infrastructure.hashing import Argon2PasswordHasher
+from auth.infrastructure.models import MerchantAdmin
+from auth.infrastructure.repository import (
     LOCKOUT_THRESHOLD,
     SqlAdminAccountReader,
     SqlAuthSessionStore,

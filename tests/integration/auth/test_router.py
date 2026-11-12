@@ -11,15 +11,15 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from marketplace.auth.application.use_cases import AuthService
-from marketplace.auth.infrastructure.hashing import Argon2PasswordHasher
-from marketplace.auth.infrastructure.models import MerchantAdmin
-from marketplace.auth.infrastructure.repository import (
+from auth.application.use_cases import AuthService
+from auth.infrastructure.hashing import Argon2PasswordHasher
+from auth.infrastructure.models import MerchantAdmin
+from auth.infrastructure.repository import (
     SqlAdminAccountReader,
     SqlAuthSessionStore,
     SqlLoginAttemptTracker,
 )
-from marketplace.auth.presentation.router import create_router
+from auth.presentation.router import create_router
 from marketplace.infrastructure.database import Database
 
 PASSWORD = "correct-horse-battery-staple"

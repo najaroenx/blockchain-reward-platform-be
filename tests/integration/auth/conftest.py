@@ -8,8 +8,8 @@ that encodes the subject/session as a deterministic string, and a matching verif
 import pytest
 from sqlalchemy.orm import Session
 
-from marketplace.auth.application.exceptions import TokenVerificationError
-from marketplace.auth.domain.entities import Subject
+from auth.application.exceptions import TokenVerificationError
+from auth.domain.entities import Subject
 from marketplace.infrastructure.legacy_schema import merchant
 
 

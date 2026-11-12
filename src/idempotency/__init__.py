@@ -1,4 +1,6 @@
-"""Idempotency-Key store, reusable across features.
+"""Idempotency-Key store, reusable across features and — now that it's a top-level package
+rather than nested under `marketplace.infrastructure` — reusable across services that install
+this distribution, not just `marketplace` feature code.
 
 Backed by the `idempotency_key` table from migrations/versions/0002_legacy_schema_port.py (schema
 unchanged here — only which Python object declares it). No feature consumes this yet: `coupons`
@@ -9,9 +11,12 @@ its own narrow Protocol in `application/ports.py` shaped like `SqlIdempotencySto
 injects `Catalog` for `listings` today. `fingerprint` is a lowercase-hex string (`0x` + 64 hex
 chars), matching this project's convention for hash-shaped columns elsewhere.
 
-`operation_id`'s foreign key targets the `operation` table declared in `legacy_schema.py`, so
-anything using `SqlIdempotencyStore` must import `marketplace.infrastructure.legacy_schema`
-first (as `migrations/env.py` already does) or SQLAlchemy cannot resolve it at flush time.
+This module still depends on `marketplace.infrastructure.database.Base` for the declarative base
+and `marketplace.infrastructure.legacy_schema` for the `operation` table `operation_id`'s foreign
+key targets — the namespace move didn't extract shared DB infrastructure out of `marketplace`, so
+this isn't importable standalone without `marketplace` present. Anything using
+`SqlIdempotencyStore` must import `marketplace.infrastructure.legacy_schema` first (as
+`migrations/env.py` already does) or SQLAlchemy cannot resolve that FK at flush time.
 """
 
 from datetime import datetime

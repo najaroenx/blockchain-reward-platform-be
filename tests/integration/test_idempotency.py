@@ -2,12 +2,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from marketplace.infrastructure.database import Database
-from marketplace.infrastructure.idempotency import (
+from idempotency import (
     IdempotencyInProgress,
     IdempotencyKeyConflict,
     SqlIdempotencyStore,
 )
+from marketplace.infrastructure.database import Database
 
 SCOPE = "coupons.issue"
 FINGERPRINT_A = "0x" + "a" * 64

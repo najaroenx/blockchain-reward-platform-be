@@ -20,44 +20,69 @@ See [Layer-based versus Hybrid Feature-based](layer-based-vs-feature-based.md) f
 and shared-infrastructure ownership rules.
 
 ```text
-src/marketplace/
-  main.py                          composition root, HTTP app, lifespan, error mapping
-  settings.py                      role-specific configuration
-  logging_config.py                JSON logging and secret redaction
-  worker.py                        worker entry point; execution disabled
-  indexer.py                       indexer entry point; execution disabled
-  listings/
-    domain/entities.py             immutable listing and marketplace values
-    application/use_cases.py       catalog availability and not-found behavior
-    application/ports.py           repository interface consumed by use cases
-    application/dto.py             query result values
-    application/exceptions.py      application failures
-    infrastructure/models.py       listings-owned SQLAlchemy projections
-    infrastructure/repository.py   listings-owned query adapter
-    presentation/router.py         HTTP endpoints receiving an injected provider
-    presentation/schemas.py        HTTP validation and response models
-  coupons/
-    domain/                        package skeleton for coupon entities and rules
-    application/                   package skeleton for coupon use cases and ports
-    infrastructure/                package skeleton for coupon adapters
-    presentation/                  package skeleton for coupon HTTP routes and schemas
-  infrastructure/
-    database.py                    shared engine and request-scoped sessions
-    blockchain/abi/                pinned reference, not a deployment binding
-migrations/                        Alembic schema owned by this backend
+src/
+  marketplace/
+    main.py                          composition root, HTTP app, lifespan, error mapping
+    settings.py                      role-specific configuration
+    logging_config.py                JSON logging and secret redaction
+    worker.py                        worker entry point; execution disabled
+    indexer.py                       indexer entry point; execution disabled
+    listings/
+      domain/entities.py             immutable listing and marketplace values
+      application/use_cases.py       catalog availability and not-found behavior
+      application/ports.py           repository interface consumed by use cases
+      application/dto.py             query result values
+      application/exceptions.py      application failures
+      infrastructure/models.py       listings-owned SQLAlchemy projections
+      infrastructure/repository.py   listings-owned query adapter
+      presentation/router.py         HTTP endpoints receiving an injected provider
+      presentation/schemas.py        HTTP validation and response models
+    coupons/
+      domain/                        package skeleton for coupon entities and rules
+      application/                   package skeleton for coupon use cases and ports
+      infrastructure/                package skeleton for coupon adapters
+      presentation/                  package skeleton for coupon HTTP routes and schemas
+    infrastructure/
+      database.py                    shared engine and request-scoped sessions
+      blockchain/abi/                pinned reference, not a deployment binding
+  auth/
+    domain/entities.py               Subject value, email normalization
+    application/use_cases.py         login, refresh rotation, logout, session revocation
+    application/ports.py             PasswordHasher, TokenSigner/TokenVerifier (no production
+                                      adapter yet — KMS-backed signing is deferred), stores
+    infrastructure/models.py         merchant_admin, auth_session, auth_event, login_attempt,
+                                      login_lockout — claimed out of marketplace/infrastructure/
+                                      legacy_schema.py, still depends on it for merchant/customer
+                                      FKs and on marketplace.infrastructure.database for Base
+    presentation/router.py           built and tested standalone; not wired into
+                                      marketplace.main.create_app() until TokenSigner exists
+  idempotency/                       Idempotency-Key store (SqlIdempotencyStore); not yet
+                                      consumed by any feature; same database.py/legacy_schema.py
+                                      dependency as auth
+migrations/                          Alembic schema owned by this backend
 tests/conftest.py                  shared fixtures
 tests/unit/                        configuration, logging, and reference tests
 tests/integration/listings/         catalog HTTP and database tests
+tests/integration/auth/            auth service, router, and schema-invariant tests
 tests/integration/                 shared migration and process tests
 scripts/verify.py                  repeatable verification entry point
 scripts/sync_contract_reference.py reproducible ABI extraction from the pinned Git commit
 ```
 
-The installable package is `marketplace` under `src/`. Organize by feature first, then by domain,
-application, infrastructure, and presentation within each feature. Listings owns the existing
-catalog read use cases, projection models, repository, and HTTP endpoints. Coupons is an explicitly
-requested feature skeleton: each layer is a Python package, with no new use case, ORM model, or
-HTTP route. Coupon creation and minting still require the deployment and signing decisions.
+`marketplace`, `auth`, and `idempotency` are three top-level packages under `src/`, built and
+installed as one distribution (`[tool.hatch.build.targets.wheel] packages` in `pyproject.toml`
+lists all three). `auth` and `idempotency` sit outside the `marketplace` namespace because they
+are not marketplace-trading concerns — `auth` owns login/session data and rules of its own, and
+both are meant to be reusable by other features (and, in principle, other services built from this
+distribution) rather than scoped to the marketplace feature set. Organize by feature first, then
+by domain, application, infrastructure, and presentation within each feature. Listings owns the
+existing catalog read use cases, projection models, repository, and HTTP endpoints. Coupons is an
+explicitly requested feature skeleton: each layer is a Python package, with no new use case, ORM
+model, or HTTP route. Coupon creation and minting still require the deployment and signing
+decisions. `auth` and `idempotency` still import `marketplace.infrastructure.database.Base` for
+the declarative base and (for `auth`) `marketplace.infrastructure.legacy_schema` for FK targets —
+the namespace split did not extract shared DB infrastructure out of `marketplace`, so neither
+package is importable standalone without `marketplace` present.
 
 Shared connection management and ABI reference assets stay in the package-level infrastructure.
 Feature infrastructure owns its ORM models and queries. Shared infrastructure does not import
@@ -71,10 +96,13 @@ Within listings, domain objects describe listing values. Query DTOs and availabi
 to application. Use cases depend on domain and repository protocols. Presentation handles HTTP.
 `main.py` wires the concrete repository into the use case and injects its provider into the router.
 
-Import Linter covers both listings and coupons with six dependency rules: domain independence, application independence,
-presentation isolation from persistence, feature infrastructure isolation from HTTP, settings/logging
-independence from features, and shared infrastructure independence from features. Domain and
-application do not depend on FastAPI, Pydantic, or SQLAlchemy.
+Import Linter's `root_packages` lists all three top-level packages (`marketplace`, `auth`,
+`idempotency`) and applies the same six dependency rules across `listings`, `coupons`, and `auth`:
+domain independence, application independence, presentation isolation from persistence, feature
+infrastructure isolation from HTTP, settings/logging independence from features, and shared
+infrastructure independence from features (`idempotency` is included as a second source module on
+that last rule, alongside `marketplace.infrastructure`). Domain and application do not depend on
+FastAPI, Pydantic, or SQLAlchemy.
 
 ## Responsibilities
 

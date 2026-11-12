@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from marketplace.auth.application.dto import LoginResult, RefreshResult, SessionSummary
-from marketplace.auth.application.exceptions import (
+from auth.application.dto import LoginResult, RefreshResult, SessionSummary
+from auth.application.exceptions import (
     AccountLocked,
     InvalidCredentials,
     RefreshTokenExpired,
@@ -13,14 +13,14 @@ from marketplace.auth.application.exceptions import (
     RefreshTokenRevoked,
     SessionCompromised,
 )
-from marketplace.auth.application.ports import (
+from auth.application.ports import (
     AdminAccountReader,
     AuthSessionStore,
     LoginAttemptTracker,
     PasswordHasher,
     TokenSigner,
 )
-from marketplace.auth.domain.entities import Subject, normalize_email
+from auth.domain.entities import Subject, normalize_email
 
 ACCESS_TTL_SECONDS = 900
 REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30

@@ -1,7 +1,10 @@
 # เปรียบเทียบ Layer-based และ Hybrid Feature-based
 
-ทั้งสองแบบใช้ `src/marketplace/` เป็น Python package และแยก config, scripts, migrations
+ทั้งสองแบบใช้ `src/` เป็นที่เก็บ Python packages และแยก config, scripts, migrations
 กับ tests ไว้ที่ root เหมือนกัน ความต่างคือจะจัดตาม layer หรือ feature ก่อน
+(`marketplace` คือ package หลักที่มี listings/coupons อยู่ข้างใน ส่วน `auth` กับ
+`idempotency` เป็น package แยกต่างหากที่ระดับเดียวกับ `marketplace` — ดูเหตุผลใน
+[architecture](architecture.md))
 
 ในเอกสารนี้ **Hybrid Feature-based** หมายถึงแยก feature ก่อน แล้วแบ่ง layer ภายใน feature
 ซึ่งเป็นโครงสร้างที่โปรเจกต์นี้ใช้อยู่
@@ -39,33 +42,49 @@ src/marketplace/
 โครงสร้างปัจจุบัน:
 
 ```text
-src/marketplace/
-├── main.py
-├── settings.py
-├── logging_config.py
-├── worker.py
-├── indexer.py
-├── listings/
+src/
+├── marketplace/
+│   ├── main.py
+│   ├── settings.py
+│   ├── logging_config.py
+│   ├── worker.py
+│   ├── indexer.py
+│   ├── listings/
+│   │   ├── domain/
+│   │   ├── application/
+│   │   ├── infrastructure/
+│   │   └── presentation/
+│   ├── coupons/
+│   │   ├── domain/
+│   │   ├── application/
+│   │   ├── infrastructure/
+│   │   └── presentation/
+│   └── infrastructure/
+│       ├── database.py
+│       └── blockchain/
+│           └── abi/
+├── auth/
 │   ├── domain/
 │   ├── application/
 │   ├── infrastructure/
 │   └── presentation/
-├── coupons/
-│   ├── domain/
-│   ├── application/
-│   ├── infrastructure/
-│   └── presentation/
-└── infrastructure/
-    ├── database.py
-    └── blockchain/
-        └── abi/
+└── idempotency/
 ```
 
-การจัดกลุ่มเริ่มจากคำถามว่าโค้ดนี้เป็นของ listings หรือ coupons แล้วจึงแบ่ง layer
+การจัดกลุ่มเริ่มจากคำถามว่าโค้ดนี้เป็นของ feature ไหน แล้วจึงแบ่ง layer
 การแก้หนึ่ง feature จึงอยู่ใต้โฟลเดอร์เดียวกัน ส่วนเครื่องมือที่ใช้ร่วมกันอยู่ระดับ package
 
 ปัจจุบัน `listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มีเฉพาะโครง
 Python packages ยังไม่มี use case, ORM model หรือ HTTP endpoint สำหรับสร้างหรือ mint คูปอง
+`auth` มี implementation ครบ (login, refresh rotation, logout, session) แต่ยังไม่ต่อเข้า
+`marketplace.main.create_app()` เพราะยังไม่มี TokenSigner ที่ใช้งานจริง (รอการตัดสินใจเรื่อง
+KMS) `idempotency` มีแต่ store ยังไม่มี feature ไหนเรียกใช้
+
+`auth` กับ `idempotency` แยก namespace ออกจาก `marketplace` เพราะไม่ใช่เรื่อง marketplace
+ซื้อขายโดยตรง และตั้งใจให้ feature อื่น (หรือ service อื่นที่ build จาก distribution เดียวกันนี้)
+เรียกใช้ร่วมกันได้ — แต่ยังเป็น package ติดตั้งพร้อมกันตัวเดียว (`pyproject.toml` เดียว, wheel
+เดียว) ไม่ใช่การแยก deploy หรือแยก versioning คนละ package ทั้งสองยังอ้างอิง
+`marketplace.infrastructure.database.Base` อยู่ ยังไม่ได้แยก shared DB infrastructure ออกมาด้วย
 
 ## เปรียบเทียบการใช้งาน
 
