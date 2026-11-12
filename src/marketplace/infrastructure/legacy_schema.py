@@ -541,23 +541,6 @@ customer_session = sa.Table(
     sa.CheckConstraint("expires_at > created_at", name="ck_session_window"),
 )
 
-idempotency_key = sa.Table(
-    "idempotency_key",
-    Base.metadata,
-    sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column("scope", sa.Text(), nullable=False),
-    sa.Column("key", sa.Text(), nullable=False),
-    sa.Column("fingerprint", HASH, nullable=False),
-    sa.Column("operation_id", sa.Text(), sa.ForeignKey("operation.id"), nullable=True),
-    sa.Column("response_status", sa.Integer(), nullable=True),
-    sa.Column("response_body", sa.JSON(), nullable=True),
-    sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.Column("expires_at", TS, nullable=False),
-    sa.CheckConstraint("length(key) BETWEEN 8 AND 255", name="ck_idem_key_len"),
-    sa.CheckConstraint("length(fingerprint) = 66", name="ck_idem_fingerprint_len"),
-    sa.UniqueConstraint("scope", "key", name="uq_idem"),
-)
-
 reservation = sa.Table(
     "reservation",
     Base.metadata,
