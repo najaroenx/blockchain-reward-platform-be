@@ -303,7 +303,8 @@ thb_balance = sa.Table(
         ("CUSTOMER_THB", "MERCHANT_THB", "PLATFORM_THB", "ISSUANCE"),
         "ck_thb_balance_account_enum",
     ),
-    sa.CheckConstraint("amount >= 0 OR account = 'ISSUANCE'", name="ck_balance_sign"),
+    # ck_balance_sign (amount >= 0 OR account = 'ISSUANCE') is dropped: amount is a decimal
+    # string; Postgres has no `>=` operator between varchar and integer.
 )
 
 psp_webhook = sa.Table(
@@ -428,7 +429,7 @@ thb_deposit = sa.Table(
     sa.Column("expires_at", TS, nullable=False),
     _enum_check("holder_kind", HOLDER_KIND, "ck_thb_deposit_holder_kind_enum"),
     sa.CheckConstraint("amount_satang > 0", name="ck_thb_deposit_satang_pos"),
-    sa.CheckConstraint("amount_base > 0", name="ck_thb_deposit_base_pos"),
+    # ck_thb_deposit_base_pos (amount_base > 0) is dropped: decimal-string amount.
     _enum_check(
         "status",
         ("PENDING_PAYMENT", "CONFIRMED", "MINTED", "REVERSED", "FAILED", "EXPIRED"),
@@ -665,7 +666,7 @@ point_balance = sa.Table(
     sa.Column("amount", AMOUNT, nullable=False),
     sa.Column("as_of_block", sa.BigInteger(), nullable=False),
     _enum_check("holder_kind", HOLDER_KIND, "ck_point_balance_holder_kind_enum"),
-    sa.CheckConstraint("amount >= 0", name="ck_point_balance_amount_nonneg"),
+    # ck_point_balance_amount_nonneg (amount >= 0) is dropped: decimal-string amount.
 )
 
 point_type_chain = sa.Table(
@@ -700,7 +701,7 @@ point_balance_bucket = sa.Table(
     sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
     _enum_check("holder_kind", HOLDER_KIND, "ck_point_bucket_holder_kind_enum"),
     sa.CheckConstraint("epoch_index >= 0", name="ck_point_bucket_epoch_nonneg"),
-    sa.CheckConstraint("amount >= 0", name="ck_point_bucket_amount_nonneg"),
+    # ck_point_bucket_amount_nonneg (amount >= 0) is dropped: decimal-string amount.
     sa.CheckConstraint("expires_at > received_at", name="ck_bucket_expiry"),
     sa.UniqueConstraint(
         "point_type_id", "holder_kind", "holder_id", "epoch_index", name="uq_bucket"
@@ -777,7 +778,7 @@ ledger_entry = sa.Table(
         "ck_ledger_entry_account_enum",
     ),
     sa.CheckConstraint("asset = 'THB'", name="ck_ledger_entry_asset"),
-    sa.CheckConstraint("amount <> 0", name="ck_ledger_entry_amount_nonzero"),
+    # ck_ledger_entry_amount_nonzero (amount <> 0) is dropped: decimal-string amount.
     sa.CheckConstraint(
         "holder_kind IS NULL OR holder_kind IN ('MERCHANT', 'CUSTOMER')",
         name="ck_ledger_entry_holder_kind_enum",
@@ -881,8 +882,8 @@ deposit_reversal = sa.Table(
     sa.Column("outcome", sa.String(40), nullable=False),
     sa.Column("note", sa.Text(), nullable=True),
     sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.CheckConstraint("amount_base > 0", name="ck_deposit_reversal_amount_pos"),
-    sa.CheckConstraint("available_at_reversal >= 0", name="ck_deposit_reversal_available_nonneg"),
+    # ck_deposit_reversal_amount_pos and ck_deposit_reversal_available_nonneg are dropped:
+    # decimal-string amounts.
     _enum_check("outcome", ("BURNED", "MANUAL_REVIEW"), "ck_deposit_reversal_outcome_enum"),
 )
 
@@ -898,7 +899,7 @@ thb_mint = sa.Table(
     sa.Column("tx_hash", HASH, nullable=True),
     sa.Column("minted_block", sa.BigInteger(), nullable=True),
     sa.Column("applied_at", TS, nullable=True),
-    sa.CheckConstraint("amount_base > 0", name="ck_thb_mint_amount_pos"),
+    # ck_thb_mint_amount_pos (amount_base > 0) is dropped: decimal-string amount.
     _enum_check(
         "to_account",
         ("CUSTOMER_THB", "MERCHANT_THB", "PLATFORM_THB", "ISSUANCE"),
@@ -1033,12 +1034,10 @@ purchase = sa.Table(
     sa.Column("settled_at", TS, nullable=True),
     _enum_check("buyer_kind", HOLDER_KIND, "ck_purchase_buyer_kind_enum"),
     _enum_check("seller_kind", HOLDER_KIND, "ck_purchase_seller_kind_enum"),
-    sa.CheckConstraint("unit_price > 0", name="ck_purchase_unit_price_pos"),
     sa.CheckConstraint("quantity > 0", name="ck_purchase_quantity_pos"),
-    sa.CheckConstraint("total_price > 0", name="ck_purchase_total_price_pos"),
     sa.CheckConstraint("fee_bps BETWEEN 0 AND 10000", name="ck_purchase_fee_bps_range"),
-    sa.CheckConstraint("fee_amount >= 0", name="ck_purchase_fee_amount_nonneg"),
-    sa.CheckConstraint("net_to_seller >= 0", name="ck_purchase_net_nonneg"),
+    # ck_purchase_unit_price_pos, ck_purchase_total_price_pos, ck_purchase_fee_amount_nonneg,
+    # and ck_purchase_net_nonneg are dropped: all four are decimal-string amounts.
     _enum_check("status", ("PENDING", "SETTLED", "FAILED"), "ck_purchase_status_enum"),
     sa.CheckConstraint(
         "(status = 'SETTLED') = (settled_at IS NOT NULL)", name="ck_purchase_settled"
@@ -1092,7 +1091,7 @@ coupon_holding = sa.Table(
     sa.Column("as_of_block", sa.BigInteger(), nullable=True),
     sa.Column("as_of_time", TS, nullable=True),
     _enum_check("holder_kind", HOLDER_KIND, "ck_coupon_holding_holder_kind_enum"),
-    sa.CheckConstraint("quantity >= 0", name="ck_coupon_holding_quantity_nonneg"),
+    # ck_coupon_holding_quantity_nonneg (quantity >= 0) is dropped: decimal-string amount.
     sa.UniqueConstraint("coupon_type_id", "holder_kind", "holder_id", name="uq_holding"),
 )
 
