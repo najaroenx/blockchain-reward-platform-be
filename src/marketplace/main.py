@@ -9,6 +9,14 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from marketplace.coupons.application.dto import AuthenticatedWallet
+from marketplace.coupons.infrastructure.mock_auth import MockTokenAuthenticator
+from marketplace.coupons.presentation.router import (
+    RedeemDependencies,
+)
+from marketplace.coupons.presentation.router import (
+    create_router as create_redeem_router,
+)
 from marketplace.infrastructure.database import Database
 from marketplace.listings.application.exceptions import (
     ListingNotFound,
@@ -26,9 +34,21 @@ class HealthResponse(BaseModel):
     role: Literal["api"] = "api"
 
 
-def create_app(settings: ApiSettings | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None, *, redeem: RedeemDependencies | None = None
+) -> FastAPI:
     config = settings if settings is not None else load_settings("api")
     logger = configure_logging("api", config.log_level)
+    if redeem is None and config.mock_auth_enabled:
+        redeem = RedeemDependencies(
+            authenticate=MockTokenAuthenticator(
+                config.mock_auth_token.get_secret_value(),
+                AuthenticatedWallet(
+                    user_id=config.mock_auth_user_id,
+                    wallet_address=config.mock_auth_wallet_address,
+                ),
+            )
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -44,7 +64,10 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         title="Blockchain Reward Platform",
         version="0.1.0",
         lifespan=lifespan,
-        description="Read-only marketplace projections. Transaction submission is not enabled.",
+        description=(
+            "Marketplace projections and coupon admission. "
+            "Redeem admission requires configured adapters; transaction submission is not enabled."
+        ),
     )
 
     @app.get("/healthz", response_model=HealthResponse, tags=["health"])
@@ -89,6 +112,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
                 raise ProjectionUnavailable from None
 
     app.include_router(create_router(provide_catalog))
+    app.include_router(create_redeem_router(redeem))
     return app
 
 

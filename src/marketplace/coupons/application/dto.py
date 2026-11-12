@@ -1,38 +1,46 @@
-"""Draft redeem messages; authentication and admission are not implemented yet."""
+"""Redeem messages shared by the HTTP boundary and admission adapters."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass(frozen=True)
 class AuthenticatedWallet:
-    # Represents an authenticated wallet, typically verified by an authentication adapter.
-    # Contains identifiers such as user ID and wallet address.
-    pass
+    """Wallet ownership already verified by the authentication adapter."""
+
+    user_id: str
+    wallet_address: str
 
 
 @dataclass(frozen=True)
 class RedeemCouponCommand:
-    # Command to redeem a coupon, containing the actor's authenticated wallet,
-    # the type ID of the coupon to redeem, and an idempotency key to ensure safe retries.
-    pass
+    wallet: AuthenticatedWallet
+    type_id: int
+    idempotency_key: str
 
 
 @dataclass(frozen=True)
 class CouponDeployment:
-    # Represents a deployed coupon contract selected from verified trusted configuration.
-    # Contains identifiers such as the blockchain chain ID and the coupon contract address.
-    pass
+    """Deployment verified and selected by a trusted configuration adapter."""
+
+    chain_id: int
+    contract_address: str
 
 
 @dataclass(frozen=True)
 class RedeemCouponPayload:
-    # Payload containing the deployment details, wallet address,
-    # coupon type ID, and amount to redeem (fixed at 1).
-    pass
+    chain_id: int
+    coupon_contract_address: str
+    wallet_address: str
+    type_id: int
+    amount: Literal[1] = field(default=1, init=False)
 
 
 @dataclass(frozen=True)
 class RedeemCouponResult:
-    # Admission result containing the operation ID, coupon type ID,
-    # PENDING status, and amount (fixed at 1).
-    pass
+    """Acknowledgement returned only after admission commits or replays."""
+
+    operation_id: str
+    type_id: int
+    status: Literal["PENDING"] = field(default="PENDING", init=False)
+    amount: Literal[1] = field(default=1, init=False)

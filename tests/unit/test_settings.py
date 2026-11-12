@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from marketplace.settings import ConfigurationError, init_env, load_settings
+from marketplace.settings import ApiSettings, ConfigurationError, init_env, load_settings
 
 
 def test_role_files_override_shared_and_shell_overrides_files(tmp_path: Path) -> None:
@@ -93,3 +94,65 @@ def test_init_env_preserves_local_values(tmp_path: Path, monkeypatch: pytest.Mon
     init_env()
     assert (tmp_path / ".env").read_text() == "DATABASE_URL=keep-this\n"
     assert (tmp_path / ".env.api").read_text() == "PORT=3000\n"
+
+
+@pytest.mark.parametrize("environment", ["development", "test"])
+def test_local_mock_auth_can_be_enabled_from_api_environment(
+    tmp_path: Path, environment: str
+) -> None:
+    (tmp_path / ".env").write_text(f"DATABASE_URL=sqlite:///local.db\nAPP_ENV={environment}\n")
+    (tmp_path / ".env.api").write_text(
+        "MOCK_AUTH_ENABLED=true\nMOCK_AUTH_TOKEN=local-fixture-token\n"
+        "MOCK_AUTH_USER_ID=local-user\n"
+        "MOCK_AUTH_WALLET_ADDRESS=0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n"
+    )
+    settings = load_settings("api", root=tmp_path, environ={})
+    assert settings.mock_auth_enabled is True
+    assert settings.mock_auth_token.get_secret_value() == "local-fixture-token"
+    assert settings.mock_auth_user_id == "local-user"
+    assert settings.mock_auth_wallet_address == "0x" + "b" * 40
+    assert "local-fixture-token" not in repr(settings)
+
+
+def test_mock_auth_is_disabled_by_default(tmp_path: Path) -> None:
+    settings = load_settings("api", root=tmp_path, environ={"DATABASE_URL": "sqlite:///local.db"})
+    assert settings.mock_auth_enabled is False
+
+
+def test_production_rejects_mock_auth_from_environment(tmp_path: Path) -> None:
+    with pytest.raises(ConfigurationError, match="mock_auth_enabled") as error:
+        load_settings(
+            "api",
+            root=tmp_path,
+            environ={
+                "DATABASE_URL": "postgresql+psycopg://reward:SECRET@localhost/reward",
+                "APP_ENV": "production",
+                "MOCK_AUTH_ENABLED": "true",
+                "MOCK_AUTH_TOKEN": "SECRET-mock-token",
+            },
+        )
+    assert "SECRET" not in str(error.value)
+
+
+def test_direct_app_settings_cannot_enable_production_mock_auth() -> None:
+    with pytest.raises(ValidationError, match="mock authentication is not allowed in production"):
+        ApiSettings(
+            database_url="postgresql+psycopg://reward:password@localhost/reward",
+            APP_ENV="production",
+            mock_auth_enabled=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "values", [{"MOCK_AUTH_TOKEN": ""}, {"MOCK_AUTH_WALLET_ADDRESS": "SECRET-invalid-wallet"}]
+)
+def test_mock_auth_configuration_is_validated_without_echoing_values(
+    tmp_path: Path, values: dict[str, str]
+) -> None:
+    with pytest.raises(ConfigurationError) as error:
+        load_settings(
+            "api",
+            root=tmp_path,
+            environ={"DATABASE_URL": "sqlite:///local.db", "MOCK_AUTH_ENABLED": "true", **values},
+        )
+    assert "SECRET" not in str(error.value)

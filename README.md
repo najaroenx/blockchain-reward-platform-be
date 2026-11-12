@@ -6,7 +6,8 @@ SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ 
 
 สถานะ: API, config แยก process, logging, database migrations และ catalog สำหรับอ่าน projection
 ใช้งานได้ ส่วน worker/indexer มีคำสั่งตรวจ config แต่ **ยังไม่ส่งธุรกรรมหรืออ่าน chain จริง**
-ระบบเดิมก็ยังไม่มีส่วนประมวลผลเหล่านั้น ไม่มี purchase/redeem endpoint เปิดไว้ในรอบนี้
+มี route และ use case สำหรับรับคำขอ redeem แล้ว แต่ค่าเริ่มต้นยังไม่รับงานจนกว่าจะต่อ adapters
+สำหรับ auth, deployment ที่ยืนยันแล้ว และการบันทึก admission จริง ยังไม่มี purchase endpoint
 
 ## ติดตั้ง
 
@@ -45,7 +46,7 @@ deployment, worker, indexer หรือ catalog พร้อมใช้งา�
 | ไฟล์ | ตัวแปร |
 | --- | --- |
 | `.env` | `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL` |
-| `.env.api` | `HOST`, `PORT` |
+| `.env.api` | `HOST`, `PORT`, `MOCK_AUTH_ENABLED`, `MOCK_AUTH_TOKEN`, `MOCK_AUTH_USER_ID`, `MOCK_AUTH_WALLET_ADDRESS` |
 | `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION` |
 | `.env.indexer` | `RPC_URL`, `CHAIN_ID`, `FINALITY_DEPTH` |
 
@@ -77,8 +78,77 @@ escrow ซ้ำใน backend รายการแบบ list แสดงเ�
 เพื่อบอกระดับข้อมูลที่อ่าน API ไม่มี endpoint สำหรับเติม listing ปลอม
 หลังติดตั้งใหม่ catalog จึงยังตอบ 503 จนกว่าจะมี indexer ที่ยืนยัน deployment และสร้าง projection
 
-Catalog reads ปัจจุบันเป็น public และมีเฉพาะข้อมูล listing บน chain ไม่มี endpoint เขียนข้อมูล
-ส่วน auth, wallet authorization, idempotency และการส่งธุรกรรมยังต้องออกแบบตามการตัดสินใจด้านล่าง
+Catalog reads ปัจจุบันเป็น public และมีเฉพาะข้อมูล listing บน chain ไม่มี endpoint เขียน listings
+
+## Redeem admission ที่ยังไม่ต่อ production adapters
+
+`POST /v1/coupons/redeem` รับเฉพาะ `typeId` แบบ canonical uint256 decimal string
+และบังคับ `Idempotency-Key` ยาว 8 ถึง 255 ตัวอักษร Use case สร้าง payload จาก wallet และ
+deployment ที่ adapters resolve ให้ โดยกำหนด `amount=1` ฝั่ง server
+Validation ของ route นี้ตอบ HTTP 400 และปฏิเสธ field เกินทั้งหมด รวมถึง wallet และ amount
+
+`main.py` register route นี้แล้ว โดยรับ `RedeemDependencies` ผ่าน `create_app(..., redeem=...)`
+สามารถต่อ authentication ก่อน แล้วค่อยต่อ use case สำหรับ deployment และ DB admission ได้
+เมื่อไม่ได้ต่อ adapters และปิด mock auth คำขอที่มี bearer token ตอบ `503 REDEEM_UNAVAILABLE`
+ส่วนคำขอที่ไม่มี bearer token ตอบ 401
+
+Tests ต่อ adapters จำลองเพื่อตรวจ HTTP, DTO และ payload ที่มี amount เป็น 1
+ยังไม่มี production token verification, wallet authorization, deployment resolver หรือ DB admission
+จึงยังไม่ยืนยัน atomic operation/outbox, idempotency replay หรือผลบน chain
+อ่านรายละเอียดใน [Redeem admission](docs/coupon-redeem-draft.md)
+ส่วน [API contract และ error codes](docs/api/redeem.md) อธิบาย OpenAPI, Postman และผลลัพธ์แต่ละแบบ
+
+### ทดลองด้วย mock token
+
+เปิด mock auth สำหรับ development หรือ test ใน `.env.api`:
+
+```dotenv
+MOCK_AUTH_ENABLED=true
+MOCK_AUTH_TOKEN=mock-redeem-token
+MOCK_AUTH_USER_ID=mock-user
+MOCK_AUTH_WALLET_ADDRESS=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+```
+
+จากนั้นเริ่ม API ด้วย `.venv/bin/reward-api` แล้วส่งคำขอจากอีก terminal:
+
+```bash
+curl -i http://127.0.0.1:3000/v1/coupons/redeem \
+	-H 'Authorization: Bearer mock-redeem-token' \
+	-H 'Idempotency-Key: mock-redeem-key-1' \
+	-H 'Content-Type: application/json' \
+	-d '{"typeId":"1"}'
+```
+
+คำขอตัวอย่างที่ใช้ token ตรงกับค่าที่ตั้งไว้จะผ่าน mock auth แล้วได้ HTTP 503 พร้อมข้อความ
+`Redeem admission adapters are not configured.` เพราะยังไม่มีส่วนรับงานจริง
+Token ผิดหรือหายได้ 401 ไม่มี operation, outbox หรือธุรกรรมถูกสร้าง
+เมื่อ token ตรงแล้ว typeId ผิด, มี field เกิน หรือขาด Idempotency-Key จะได้ 400 ก่อนตรวจส่วนรับงาน
+
+Mock auth เทียบ token ตรงตัวแล้วคืน user และ wallet ที่กำหนดไว้ ไม่ตรวจ JWT, expiry
+หรือพิสูจน์ wallet ownership ค่าเริ่มต้นของ flag เป็น `false` และ configuration ปฏิเสธการเปิดใน production
+ค่าตัวอย่างด้านบนเป็น defaults ของ mock profile และยังไม่ยืนยัน deployment ใด
+
+### ตรวจ API contract และ Postman
+
+```bash
+.venv/bin/python scripts/verify_redeem_api.py
+```
+
+คำสั่งนี้ตรวจ OpenAPI ตามมาตรฐาน, ตรวจไฟล์ที่ generate ว่าตรงกับ runtime และตรวจ Postman examples
+กับ response schemas โดยรวมอยู่ใน `scripts/verify.py` แล้ว ใช้ `--export` เมื่อเปลี่ยน contract
+เพื่อสร้าง [OpenAPI](docs/api/redeem.openapi.json), [collection](postman/redeem.postman_collection.json)
+และ [environment](postman/local.postman_environment.json) ใหม่
+
+Postman folder `Local mock` ใช้กับ mock API ในเครื่อง โดยคำขอถูกต้องยังได้ 503
+ส่วน `Adapter contract` ใช้ fixtures ที่ script สร้างแยกต่างหากเพื่อตรวจ 202 และ error mapping
+เมื่อ Newman อยู่ใน PATH ให้รันทั้งสอง folder ด้วย:
+
+```bash
+.venv/bin/python scripts/verify_redeem_api.py --newman newman
+```
+
+Script เปิด HTTP servers บน loopback สำหรับแต่ละ folder และส่ง token ของ fixture ให้ Newman
+ผลเหล่านี้ไม่ยืนยัน token expiry, wallet ownership, DB commit, idempotency, rate policy หรือ chain จริง
 
 ## PostgreSQL สำหรับ local development
 
@@ -101,7 +171,7 @@ Compose เปิด port เฉพาะ loopback และใช้ credential
 # หรือ make check
 ```
 
-รัน Ruff, formatting, strict type checks, dependency-boundary checks และ pytest
+รัน Ruff, formatting, strict type checks, dependency-boundary checks, API artifact checks และ pytest
 Tests ใช้ฐานข้อมูลชั่วคราวจริงและ migration จริง รวม HTTP, pagination, chain/address isolation,
 uint256 precision, config precedence, role secrets, redacted logs, rollback และ ABI reference
 
@@ -120,7 +190,8 @@ uint256 precision, config precedence, role secrets, redacted logs, rollback แ�
 
 ใช้ **`src/` Layout + Hybrid Feature-based** โดยแยก feature ก่อน แล้วแบ่ง
 `domain`, `application`, `infrastructure` และ `presentation` ภายในแต่ละ feature
-`listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` เป็นโครง package สำหรับเพิ่ม use cases ต่อไป
+`listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มี route, DTO และ use case
+สำหรับ redeem admission โดยยังไม่มี production adapters
 
 ```text
 blockchain-reward-platform-be/
@@ -134,6 +205,7 @@ blockchain-reward-platform-be/
 │   ├── conftest.py                  # Fixtures กลาง
 │   ├── unit/                        # Config, logging และ contract reference
 │   └── integration/
+│       ├── coupons/                  # HTTP ของ redeem โดยใช้ adapters จำลอง
 │       ├── listings/                 # HTTP และ database ของ listings
 │       ├── test_migrations.py
 │       └── test_processes.py
@@ -164,7 +236,7 @@ blockchain-reward-platform-be/
         │   └── presentation/
         │       ├── router.py        # HTTP endpoints ของ listings
         │       └── schemas.py       # Request/response models
-        ├── coupons/                 # โครงสร้างเท่านั้น ยังไม่มี use case หรือ endpoint
+        ├── coupons/                 # Redeem admission; production adapters ยังไม่พร้อม
         │   ├── domain/
         │   ├── application/
         │   ├── infrastructure/
@@ -202,8 +274,8 @@ Import Linter ตรวจขอบเขตทั้ง 6 ข้อผ่าน
 กฎ escrow และ settlement ยังคงอยู่ใน smart contract
 
 แต่ละ layer ของ `coupons/` มี `__init__.py` เพื่อเก็บโครงสร้างเป็น Python package
-ยังไม่มี API สร้างคูปองหรือ mint และยังไม่ได้ register router ของ coupons ใน `main.py`
-เพิ่ม implementation ภายใน feature นั้นเมื่อกำหนด use case และ authorization แล้ว
+`main.py` register redeem router แล้ว และ `coupons/infrastructure/mock_auth.py` มี mock token adapter
+ส่วน API สร้างคูปอง, mint และ production adapters ยังไม่มี implementation
 
 ## สิ่งที่ยังต้องตัดสินใจ
 

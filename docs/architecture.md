@@ -1,6 +1,8 @@
 # Python backend architecture
 
-Status: Python foundation and read-only catalog implemented. Live chain integration is not enabled.
+Status: Python foundation, read-only catalog, and redeem route and use case implemented.
+Redeem admission has no production adapters and rejects work by default.
+Live chain integration is not enabled.
 
 ## Existing behavior and migration scope
 
@@ -39,10 +41,16 @@ src/marketplace/
     presentation/router.py         HTTP endpoints receiving an injected provider
     presentation/schemas.py        HTTP validation and response models
   coupons/
-    domain/                        package skeleton for coupon entities and rules
-    application/                   package skeleton for coupon use cases and ports
-    infrastructure/                package skeleton for coupon adapters
-    presentation/                  package skeleton for coupon HTTP routes and schemas
+    domain/entities.py             coupon type and holder balance snapshots
+    application/dto.py             authenticated context, command, payload, and result
+    application/exceptions.py      public error codes and typed adapter failures
+    application/ports.py           wallet, deployment, and admission adapter contracts
+    application/use_cases.py       resolve deployment and admit a fixed amount of one
+    infrastructure/mock_auth.py    local fixture token mapped to a fixed user and wallet
+    infrastructure/contract_errors.py  classification of decoded errors with established origin
+    presentation/router.py         redeem route and injected dependencies
+    presentation/errors.py         centralized error status, message, headers, and OpenAPI examples
+    presentation/schemas.py        strict request, acknowledgement, and error models
   infrastructure/
     database.py                    shared engine and request-scoped sessions
     blockchain/abi/                pinned reference, not a deployment binding
@@ -50,16 +58,18 @@ migrations/                        Alembic schema owned by this backend
 tests/conftest.py                  shared fixtures
 tests/unit/                        configuration, logging, and reference tests
 tests/integration/listings/         catalog HTTP and database tests
+tests/integration/coupons/          redeem HTTP tests using adapter doubles
 tests/integration/                 shared migration and process tests
 scripts/verify.py                  repeatable verification entry point
+scripts/verify_redeem_api.py       OpenAPI and Postman export/check; optional Newman fixtures
 scripts/sync_contract_reference.py reproducible ABI extraction from the pinned Git commit
 ```
 
 The installable package is `marketplace` under `src/`. Organize by feature first, then by domain,
 application, infrastructure, and presentation within each feature. Listings owns the existing
-catalog read use cases, projection models, repository, and HTTP endpoints. Coupons is an explicitly
-requested feature skeleton: each layer is a Python package, with no new use case, ORM model, or
-HTTP route. Coupon creation and minting still require the deployment and signing decisions.
+catalog read use cases, projection models, repository, and HTTP endpoints. Coupons owns the redeem
+route, concrete DTOs, and admission use case. Coupon persistence adapters, creation, and minting
+remain unimplemented.
 
 Shared connection management and ABI reference assets stay in the package-level infrastructure.
 Feature infrastructure owns its ORM models and queries. Shared infrastructure does not import
@@ -73,6 +83,47 @@ Configuration, scripts, migrations, and tests stay at the repository root.
 Within listings, domain objects describe listing values. Query DTOs and availability errors belong
 to application. Use cases depend on domain and repository protocols. Presentation handles HTTP.
 `main.py` wires the concrete repository into the use case and injects its provider into the router.
+It also registers `POST /v1/coupons/redeem` and accepts optional `RedeemDependencies` through
+`create_app`. Those dependencies supply an authentication callback and an optional `RedeemCoupons`
+use case with deployment and admission adapters. Authentication can be wired before admission.
+Constructing DTOs does not verify wallets or deployments.
+
+The redeem route requires a bearer token and an `Idempotency-Key` of 8 to 255 characters.
+With mock auth disabled and no injected dependencies, a request with a bearer token returns
+`503 REDEEM_UNAVAILABLE`. Missing bearer credentials return 401. Only the redeem route maps
+request validation failures to HTTP 400. Catalog validation retains its existing HTTP 422 behavior.
+
+`ApiSettings` supports `MOCK_AUTH_ENABLED`, `MOCK_AUTH_TOKEN`, `MOCK_AUTH_USER_ID`, and
+`MOCK_AUTH_WALLET_ADDRESS`. Defaults are `false`, `mock-redeem-token`, `mock-user`, and
+`0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`. The token is a `SecretStr`.
+The settings validator rejects enabled mock auth in production, including directly constructed settings.
+
+When the flag is enabled and no dependencies are injected, `main.py` wires `MockTokenAuthenticator`.
+It compares the exact token and returns the configured local user and wallet.
+It does not verify JWT signatures, expiry, or wallet ownership. Wrong tokens return 401.
+After mock authentication, invalid bodies or headers return 400 before checking for a redeemer.
+For a valid request, the absent redeemer returns 503 with
+`Redeem admission adapters are not configured.` No operation or outbox is written.
+Injected dependencies take precedence over the mock configuration.
+
+Adapters report expected failures with framework-independent `RedeemFailure` and `RedeemErrorCode`.
+`presentation/errors.py` owns their HTTP status, public message, response headers, and OpenAPI examples.
+Request validation uses 400, while known Coupon business rejections before admission use 422.
+Signer/configuration failures use 503. Unexpected exceptions become a sanitized `INTERNAL_ERROR` 500.
+Raw SQL, RPC payloads, access tokens, and arbitrary framework exception details are not public errors.
+
+`classify_redeem_revert` accepts an independently established origin of `coupon`, `callback`, or `unknown`.
+Coupon and Vault share `InsufficientBalance()` selectors, so transaction destination and error name
+cannot establish the origin. Callback, unknown-origin, and unrecognized failures map to
+`CONTRACT_CALL_FAILED` 503. The helper does not decode live RPC failures or verify deployments.
+
+`scripts/verify_redeem_api.py` generates the redeem-only OpenAPI document, Postman collection,
+and local environment. Its default check validates OpenAPI, rejects artifact drift, and validates
+Postman response examples. `scripts/verify.py` includes that check.
+Optional Newman execution uses separate loopback servers for `Local mock` and `Adapter contract`.
+The latter injects test adapters. Its 202 and error responses do not prove durable admission,
+authentication policy, idempotency, rate limiting, or chain results.
+The [redeem API reference](api/redeem.md) lists public errors and artifact commands.
 
 Import Linter covers both listings and coupons with six dependency rules: domain independence, application independence,
 presentation isolation from persistence, feature infrastructure isolation from HTTP, settings/logging
@@ -91,6 +142,12 @@ address. Large EVM integers are stored as exact decimal strings and returned as 
 checkpoint yields HTTP 503, rather than pretending an unindexed marketplace has no listings.
 The returned `indexed_block` describes projection progress; it does not claim the chain is current.
 No public endpoint writes listings, submits transactions, mints coupons, or releases escrow.
+
+`RedeemCoupons` copies the trusted wallet, chain, and contract into a payload with `amount=1`.
+The route returns HTTP 202 only after the admission adapter returns its acknowledgement.
+The adapter contract requires atomic idempotency, operation, and outbox persistence before returning.
+That persistence is not implemented. HTTP tests use adapter doubles and do not prove DB commits,
+idempotency replay, concurrency, or a live deployment.
 
 SQLite is a local development/test adapter. PostgreSQL with psycopg is required in production.
 Database sessions belong to one request and close afterward. Alembic owns schema changes; the

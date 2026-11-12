@@ -66,8 +66,10 @@ src/marketplace/
 การจัดกลุ่มเริ่มจากคำถามว่าโค้ดนี้เป็นของ listings หรือ coupons แล้วจึงแบ่ง layer
 การแก้หนึ่ง feature จึงอยู่ใต้โฟลเดอร์เดียวกัน ส่วนเครื่องมือที่ใช้ร่วมกันอยู่ระดับ package
 
-ปัจจุบัน `listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มีเฉพาะโครง
-Python packages ยังไม่มี use case, ORM model หรือ HTTP endpoint สำหรับสร้างหรือ mint คูปอง
+ปัจจุบัน `listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มี redeem route,
+DTO และ use case ที่กำหนด amount เป็น 1 แต่ยังไม่มี production adapters สำหรับ auth,
+deployment และ DB admission ค่าเริ่มต้นจึงยังไม่รับงาน redeem
+ส่วน ORM model และ HTTP endpoint สำหรับสร้างหรือ mint คูปองยังไม่มี implementation
 
 ## เปรียบเทียบการใช้งาน
 

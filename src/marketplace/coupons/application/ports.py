@@ -1,4 +1,9 @@
-"""Draft adapter contracts for #224; no token, SQL, or chain implementation."""
+"""Adapter contracts for #224; production adapters are not implemented yet.
+
+Expected failures use RedeemFailure with a public code. Unknown exceptions are
+sanitized at the HTTP boundary. Decode RPC failures against the verified ABI and
+establish their origin before classifying them; never pass raw RPC/SQL details.
+"""
 
 from typing import Protocol
 

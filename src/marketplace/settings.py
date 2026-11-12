@@ -4,7 +4,15 @@ from pathlib import Path
 from typing import Literal, overload
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
@@ -44,6 +52,17 @@ class SharedSettings(BaseModel):
 class ApiSettings(SharedSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=3000, ge=1, le=65535)
+    mock_auth_enabled: bool = False
+    mock_auth_token: SecretStr = Field(default=SecretStr("mock-redeem-token"), min_length=1)
+    mock_auth_user_id: str = Field(default="mock-user", min_length=1)
+    mock_auth_wallet_address: str = Field(default="0x" + "a" * 40, pattern=r"^0x[0-9a-fA-F]{40}$")
+
+    @field_validator("mock_auth_enabled")
+    @classmethod
+    def mock_auth_is_local(cls, value: bool, info: ValidationInfo) -> bool:
+        if value and info.data.get("environment") == "production":
+            raise ValueError("mock authentication is not allowed in production")
+        return value
 
 
 class ChainSettings(SharedSettings):
