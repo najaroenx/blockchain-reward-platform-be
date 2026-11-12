@@ -751,9 +751,28 @@ def upgrade() -> None:
             " OR (subject_kind = 'CUSTOMER' AND customer_id IS NOT NULL)",
             name="ck_subject_matches",
         ),
+        # Portable equivalent of the source's `num_nonnulls(merchant_admin_id, customer_id) = 1`
+        # (Postgres-only, dropped per the module docstring) — a session belongs to exactly one
+        # subject, enforced on both PostgreSQL and SQLite.
+        sa.CheckConstraint(
+            "(CASE WHEN merchant_admin_id IS NOT NULL THEN 1 ELSE 0 END)"
+            " + (CASE WHEN customer_id IS NOT NULL THEN 1 ELSE 0 END) = 1",
+            name="ck_one_subject",
+        ),
         sa.CheckConstraint("expires_at > created_at", name="ck_expiry_after_create"),
         sa.CheckConstraint(
             "(revoked_at IS NULL) = (revoked_reason IS NULL)", name="ck_revoke_has_reason"
+        ),
+        # Restores the source's partial unique index (dropped per the module docstring as
+        # "deferred, not structural baseline"). This is the reuse-detection mechanism: a token
+        # can rotate into exactly one child, enforced here rather than via SELECT ... FOR UPDATE.
+        # SQLite supports partial indexes, so no dialect fallback is needed.
+        sa.Index(
+            "uq_session_parent",
+            "parent_id",
+            unique=True,
+            sqlite_where=sa.text("parent_id IS NOT NULL"),
+            postgresql_where=sa.text("parent_id IS NOT NULL"),
         ),
     )
     op.create_table(

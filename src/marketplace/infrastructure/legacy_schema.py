@@ -1,12 +1,14 @@
 """Schema-only metadata for Alembic's drift check, mirroring migration 0002.
 
-Declares the 50 tables created by migrations/versions/0002_legacy_schema_port.py as plain
-`sa.Table` objects on `Base.metadata`, so `alembic check` sees them as declared schema instead of
-drift. These intentionally have no ORM-mapped classes, domain entities, or repositories: no
-feature has claimed these tables yet (`coupons` is still a package skeleton, and most others have
-no decided use case — see docs/architecture.md). A feature that claims one of these tables should
-move its `sa.Table` out of here and into that feature's own `infrastructure/models.py` as a proper
-mapped class.
+Declares the remaining unclaimed tables created by migrations/versions/0002_legacy_schema_port.py
+(50 originally; `idempotency_key` and the five `auth`-owned tables — `merchant_admin`,
+`auth_session`, `auth_event`, `login_attempt`, `login_lockout` — have since moved into their
+owning module's `infrastructure/models.py`) as plain `sa.Table` objects on `Base.metadata`, so
+`alembic check` sees them as declared schema instead of drift. These intentionally have no
+ORM-mapped classes, domain entities, or repositories: no feature has claimed these tables yet
+(`coupons` is still a package skeleton, and most others have no decided use case — see
+docs/architecture.md). A feature that claims one of these tables should move its `sa.Table` out of
+here and into that feature's own `infrastructure/models.py` as a proper mapped class.
 """
 
 import sqlalchemy as sa
@@ -195,31 +197,6 @@ indexer_cursor = sa.Table(
     sa.CheckConstraint("(last_block = 0) = (last_block_hash IS NULL)", name="ck_cursor_hash"),
 )
 
-login_attempt = sa.Table(
-    "login_attempt",
-    Base.metadata,
-    sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column("identifier_hash", HASH, nullable=False),
-    sa.Column("ip_hash", HASH, nullable=False),
-    sa.Column("succeeded", sa.Boolean(), nullable=False),
-    sa.Column("failure_code", sa.Text(), nullable=True),
-    sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.CheckConstraint("length(identifier_hash) = 66", name="ck_login_attempt_id_hash_len"),
-    sa.CheckConstraint("length(ip_hash) = 66", name="ck_login_attempt_ip_hash_len"),
-    sa.CheckConstraint("succeeded = (failure_code IS NULL)", name="ck_failure_code"),
-)
-
-login_lockout = sa.Table(
-    "login_lockout",
-    Base.metadata,
-    sa.Column("identifier_hash", HASH, primary_key=True),
-    sa.Column("locked_until", TS, nullable=False),
-    sa.Column("attempt_count", sa.Integer(), nullable=False),
-    sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.CheckConstraint("length(identifier_hash) = 66", name="ck_login_lockout_hash_len"),
-    sa.CheckConstraint("attempt_count > 0", name="ck_login_lockout_count_pos"),
-)
-
 otp_challenge = sa.Table(
     "otp_challenge",
     Base.metadata,
@@ -323,24 +300,6 @@ psp_webhook = sa.Table(
 )
 
 # --- tier 1: depend only on tier 0 ---------------------------------------------------------------
-merchant_admin = sa.Table(
-    "merchant_admin",
-    Base.metadata,
-    sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column("merchant_id", sa.Text(), sa.ForeignKey("merchant.id"), nullable=False),
-    sa.Column("email", sa.Text(), nullable=False),
-    sa.Column("email_normalized", sa.Text(), nullable=False, unique=True),
-    sa.Column("password_hash", sa.Text(), nullable=False),
-    sa.Column("display_name", sa.Text(), nullable=False),
-    sa.Column("disabled_at", TS, nullable=True),
-    sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.Column("last_login_at", TS, nullable=True),
-    sa.CheckConstraint(
-        "email_normalized = lower(trim(email_normalized))", name="ck_admin_email_normalized"
-    ),
-    sa.CheckConstraint("password_hash LIKE '$argon2id$%'", name="ck_admin_password_hash"),
-)
-
 point_type = sa.Table(
     "point_type",
     Base.metadata,
@@ -692,40 +651,6 @@ point_balance_bucket = sa.Table(
 )
 
 # --- tier 2: depend on tier 0/1 -------------------------------------------------------------------
-auth_session = sa.Table(
-    "auth_session",
-    Base.metadata,
-    sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column("subject_kind", sa.String(40), nullable=False),
-    sa.Column("merchant_admin_id", sa.Text(), sa.ForeignKey("merchant_admin.id"), nullable=True),
-    sa.Column("customer_id", sa.Text(), sa.ForeignKey("customer.id"), nullable=True),
-    sa.Column("family_id", sa.Text(), nullable=False),
-    sa.Column("refresh_token_hash", HASH, nullable=False, unique=True),
-    sa.Column("parent_id", sa.Text(), sa.ForeignKey("auth_session.id"), nullable=True),
-    sa.Column("user_agent_hash", sa.LargeBinary(), nullable=True),
-    sa.Column("ip_hash", sa.LargeBinary(), nullable=True),
-    sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.Column("expires_at", TS, nullable=False),
-    sa.Column("used_at", TS, nullable=True),
-    sa.Column("revoked_at", TS, nullable=True),
-    sa.Column("revoked_reason", sa.String(40), nullable=True),
-    _enum_check(
-        "subject_kind",
-        ("MERCHANT_ADMIN", "CUSTOMER", "PLATFORM_ADMIN"),
-        "ck_auth_session_subject_kind_enum",
-    ),
-    sa.CheckConstraint("length(refresh_token_hash) = 66", name="ck_auth_session_token_len"),
-    sa.CheckConstraint(
-        "(subject_kind = 'MERCHANT_ADMIN' AND merchant_admin_id IS NOT NULL)"
-        " OR (subject_kind = 'CUSTOMER' AND customer_id IS NOT NULL)",
-        name="ck_subject_matches",
-    ),
-    sa.CheckConstraint("expires_at > created_at", name="ck_expiry_after_create"),
-    sa.CheckConstraint(
-        "(revoked_at IS NULL) = (revoked_reason IS NULL)", name="ck_revoke_has_reason"
-    ),
-)
-
 issue_batch = sa.Table(
     "issue_batch",
     Base.metadata,
@@ -913,23 +838,6 @@ expiry_notice = sa.Table(
 )
 
 # --- tier 3: depend on tier 2 -----------------------------------------------------------------
-auth_event = sa.Table(
-    "auth_event",
-    Base.metadata,
-    sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column("subject_kind", sa.String(40), nullable=True),
-    sa.Column("subject_id", sa.Text(), nullable=True),
-    sa.Column("kind", sa.Text(), nullable=False),
-    sa.Column("session_id", sa.Text(), sa.ForeignKey("auth_session.id"), nullable=True),
-    sa.Column("ip_hash", sa.LargeBinary(), nullable=True),
-    sa.Column("metadata", sa.JSON(), nullable=False),
-    sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.CheckConstraint(
-        "subject_kind IS NULL OR subject_kind IN ('MERCHANT_ADMIN', 'CUSTOMER', 'PLATFORM_ADMIN')",
-        name="ck_auth_event_subject_kind_enum",
-    ),
-)
-
 coupon_code = sa.Table(
     "coupon_code",
     Base.metadata,
