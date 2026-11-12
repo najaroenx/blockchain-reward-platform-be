@@ -7,6 +7,7 @@ SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ 
 สถานะ: API, config แยก process, logging, database migrations และ catalog สำหรับอ่าน projection
 ใช้งานได้ ส่วน worker/indexer มีคำสั่งตรวจ config แต่ **ยังไม่ส่งธุรกรรมหรืออ่าน chain จริง**
 ระบบเดิมก็ยังไม่มีส่วนประมวลผลเหล่านั้น ไม่มี purchase/redeem endpoint เปิดไว้ในรอบนี้
+มี login/session/lockout สำหรับ merchant-admin แล้ว ส่วน JWT signer จริงยังรอ #182
 
 ## ติดตั้ง
 
@@ -35,7 +36,7 @@ curl http://127.0.0.1:3000/readyz
 
 OpenAPI/Swagger: `http://127.0.0.1:3000/docs` และ `/openapi.json`
 `/healthz` วัด process liveness; `/readyz` ทดสอบ database connection จริง แต่ไม่รับรองว่า
-deployment, worker, indexer หรือ catalog พร้อมใช้งาน
+deployment, worker, indexer, catalog หรือ JWT signer พร้อมใช้งาน
 
 ## Config แยก process
 
@@ -45,7 +46,7 @@ deployment, worker, indexer หรือ catalog พร้อมใช้งา�
 | ไฟล์ | ตัวแปร |
 | --- | --- |
 | `.env` | `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL` |
-| `.env.api` | `HOST`, `PORT` |
+| `.env.api` | `HOST`, `PORT`, `LOGIN_IP_LIMIT`, `LOGIN_IP_WINDOW_SECONDS` |
 | `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION` |
 | `.env.indexer` | `RPC_URL`, `CHAIN_ID`, `FINALITY_DEPTH` |
 
@@ -77,8 +78,27 @@ escrow ซ้ำใน backend รายการแบบ list แสดงเ�
 เพื่อบอกระดับข้อมูลที่อ่าน API ไม่มี endpoint สำหรับเติม listing ปลอม
 หลังติดตั้งใหม่ catalog จึงยังตอบ 503 จนกว่าจะมี indexer ที่ยืนยัน deployment และสร้าง projection
 
-Catalog reads ปัจจุบันเป็น public และมีเฉพาะข้อมูล listing บน chain ไม่มี endpoint เขียนข้อมูล
-ส่วน auth, wallet authorization, idempotency และการส่งธุรกรรมยังต้องออกแบบตามการตัดสินใจด้านล่าง
+Catalog reads ปัจจุบันเป็น public และมีเฉพาะข้อมูล listing บน chain ไม่มี endpoint เขียน listings
+ส่วน wallet authorization, idempotency และการส่งธุรกรรมยังต้องออกแบบตามการตัดสินใจด้านล่าง
+
+## Merchant login
+
+`POST /v1/auth/login` รับเฉพาะ email/password ตรวจ Argon2id และบันทึก session/attempt/lockout
+อีเมลไม่มีในระบบ, รหัสผิด และ admin ถูกปิดใช้ ตอบ `401 INVALID_CREDENTIALS` ด้วยข้อความเดียวกัน
+ผิดครบ 5 ครั้งใน 15 นาทีจะล็อกบัญชี และมี rate limit ต่อ peer IP ค่าเริ่มต้น 20 คำขอใน 60 วินาที
+
+เชื่อม `TokenSigner` ผ่าน `AuthDependencies` ของ `create_app` ตัวเซ็นจริงยังเป็นงาน #182
+ค่าเริ่มต้นจึงตอบ `503 AUTH_UNAVAILABLE` เมื่อ credentials ถูกต้อง โดยไม่สร้าง session หรือ cookie ค้าง
+เมื่อ signer พร้อม refresh token จะส่งผ่าน Secure/HttpOnly cookie เท่านั้น และเก็บใน DB เฉพาะ SHA-256
+การ login ไม่ได้ยืนยัน wallet ownership หรือสิทธิ์ signer บน chain
+
+อ่าน [ขอบเขต login และผลตรวจ](docs/auth-login.md), [OpenAPI](docs/api/login.openapi.json)
+และ [Postman collection](postman/login.postman_collection.json)
+
+```bash
+.venv/bin/python scripts/verify_login_api.py
+# ใช้ --export เมื่อตั้งใจ regenerate API artifacts
+```
 
 ## PostgreSQL สำหรับ local development
 
@@ -93,6 +113,8 @@ export DATABASE_URL='postgresql+psycopg://reward:local-development-only@127.0.0.
 
 Compose เปิด port เฉพาะ loopback และใช้ credential สำหรับ local เท่านั้น
 อย่าใช้คำสั่ง migrations นี้กับฐานข้อมูล production หรือ schema เก่าที่มีข้อมูลโดยยังไม่ review
+ชุดตรวจ auth/migration ผ่าน PostgreSQL 17.11 แล้ว รวม Postman ผ่าน HTTP จริง
+ดูคำสั่งสร้างฐานข้อมูลทดสอบแยกและรันซ้ำใน [merchant login](docs/auth-login.md#repeatable-checks)
 
 ## ตรวจคุณภาพ
 
@@ -101,7 +123,7 @@ Compose เปิด port เฉพาะ loopback และใช้ credential
 # หรือ make check
 ```
 
-รัน Ruff, formatting, strict type checks, dependency-boundary checks และ pytest
+รัน Ruff, formatting, strict type checks, dependency-boundary checks, API artifact checks และ pytest
 Tests ใช้ฐานข้อมูลชั่วคราวจริงและ migration จริง รวม HTTP, pagination, chain/address isolation,
 uint256 precision, config precedence, role secrets, redacted logs, rollback และ ABI reference
 
@@ -120,7 +142,8 @@ uint256 precision, config precedence, role secrets, redacted logs, rollback แ�
 
 ใช้ **`src/` Layout + Hybrid Feature-based** โดยแยก feature ก่อน แล้วแบ่ง
 `domain`, `application`, `infrastructure` และ `presentation` ภายในแต่ละ feature
-`listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` เป็นโครง package สำหรับเพิ่ม use cases ต่อไป
+`listings` มี implementation สำหรับอ่านรายการขาย, `auth` ดูแล login/session/lockout
+ส่วน `coupons` เป็นโครง package สำหรับเพิ่ม use cases ต่อไปใน branch นี้
 
 ```text
 blockchain-reward-platform-be/
@@ -134,6 +157,7 @@ blockchain-reward-platform-be/
 │   ├── conftest.py                  # Fixtures กลาง
 │   ├── unit/                        # Config, logging และ contract reference
 │   └── integration/
+│       ├── auth/                     # Login, concurrency และ session constraints
 │       ├── listings/                 # HTTP และ database ของ listings
 │       ├── test_migrations.py
 │       └── test_processes.py
@@ -167,6 +191,11 @@ blockchain-reward-platform-be/
         │   ├── application/
         │   ├── infrastructure/
         │   └── presentation/
+        ├── auth/                    # Merchant login, session และ lockout
+        │   ├── domain/
+        │   ├── application/         # Login use case และ TokenSigner port
+        │   ├── infrastructure/      # Argon2id, SQL models และ repository
+        │   └── presentation/        # Login route และ HTTP schemas
         └── infrastructure/          # ของส่วนกลางที่ features ใช้ร่วมกัน
             ├── database.py          # Connection และ session
             └── blockchain/
