@@ -7,7 +7,7 @@ SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ 
 สถานะ: API, config แยก process, logging, database migrations และ catalog สำหรับอ่าน projection
 ใช้งานได้ ส่วน worker/indexer มีคำสั่งตรวจ config แต่ **ยังไม่ส่งธุรกรรมหรืออ่าน chain จริง**
 ระบบเดิมก็ยังไม่มีส่วนประมวลผลเหล่านั้น ไม่มี purchase/redeem endpoint เปิดไว้ในรอบนี้
-มี login/session/lockout สำหรับ merchant-admin แล้ว ส่วน JWT signer จริงยังรอ #182
+มี login/session/lockout และ ES256 JWT signer สำหรับ merchant-admin แล้ว
 
 ## ติดตั้ง
 
@@ -46,7 +46,7 @@ deployment, worker, indexer, catalog หรือ JWT signer พร้อมใ�
 | ไฟล์ | ตัวแปร |
 | --- | --- |
 | `.env` | `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL` |
-| `.env.api` | `HOST`, `PORT`, `LOGIN_IP_LIMIT`, `LOGIN_IP_WINDOW_SECONDS` |
+| `.env.api` | `HOST`, `PORT`, `LOGIN_IP_LIMIT`, `LOGIN_IP_WINDOW_SECONDS`, `JWT_PRIVATE_KEY_FILE`, `JWT_ISSUER`, `JWT_AUDIENCE` |
 | `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION` |
 | `.env.indexer` | `RPC_URL`, `CHAIN_ID`, `FINALITY_DEPTH` |
 
@@ -87,9 +87,11 @@ Catalog reads ปัจจุบันเป็น public และมีเฉ�
 อีเมลไม่มีในระบบ, รหัสผิด และ admin ถูกปิดใช้ ตอบ `401 INVALID_CREDENTIALS` ด้วยข้อความเดียวกัน
 ผิดครบ 5 ครั้งใน 15 นาทีจะล็อกบัญชี และมี rate limit ต่อ peer IP ค่าเริ่มต้น 20 คำขอใน 60 วินาที
 
-เชื่อม `TokenSigner` ผ่าน `AuthDependencies` ของ `create_app` ตัวเซ็นจริงยังเป็นงาน #182
-ค่าเริ่มต้นจึงตอบ `503 AUTH_UNAVAILABLE` เมื่อ credentials ถูกต้อง โดยไม่สร้าง session หรือ cookie ค้าง
-เมื่อ signer พร้อม refresh token จะส่งผ่าน Secure/HttpOnly cookie เท่านั้น และเก็บใน DB เฉพาะ SHA-256
+API เซ็น JWT จริงด้วย ES256 เมื่อกำหนด `JWT_PRIVATE_KEY_FILE`, `JWT_ISSUER` และ `JWT_AUDIENCE` ครบ
+อ่าน PEM จากไฟล์ที่ mount ผ่านระบบ secrets ตอนเริ่ม process และเผยแพร่ public key ที่ `/.well-known/jwks.json`
+ถ้าไม่ตั้งค่าทั้งสามใน development/test จะตอบ `503 AUTH_UNAVAILABLE` โดยไม่สร้าง session หรือ cookie ค้าง
+Production บังคับให้ตั้งค่า signer ครบและใช้ HTTPS issuer ส่วน refresh token ส่งผ่าน Secure/HttpOnly cookie
+และเก็บใน DB เฉพาะ SHA-256 อ่านรายละเอียดใน [JWT signing](docs/jwt-signing.md)
 การ login ไม่ได้ยืนยัน wallet ownership หรือสิทธิ์ signer บน chain
 
 อ่าน [ขอบเขต login และผลตรวจ](docs/auth-login.md), [OpenAPI](docs/api/login.openapi.json)
