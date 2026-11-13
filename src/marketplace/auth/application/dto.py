@@ -1,0 +1,32 @@
+from dataclasses import dataclass, field
+from typing import Literal
+
+from marketplace.auth.domain.entities import MerchantSubject
+
+
+@dataclass(frozen=True)
+class LoginCommand:
+    normalized_email: str
+    password: str = field(repr=False)
+    ip_hash: bytes
+    user_agent_hash: bytes | None
+
+
+@dataclass(frozen=True)
+class AccessClaims:
+    sub: str
+    mid: str
+    sid: str
+    jti: str
+    iat: int
+    exp: int
+    kind: Literal["MERCHANT_ADMIN"] = "MERCHANT_ADMIN"
+
+
+@dataclass(frozen=True)
+class LoginResult:
+    access_token: str = field(repr=False)
+    refresh_token: str = field(repr=False)
+    subject: MerchantSubject
+    expires_in: int
+    refresh_max_age: int

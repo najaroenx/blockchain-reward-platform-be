@@ -12,6 +12,7 @@ for command in (
     [str(BIN / "ruff"), "format", "--check", "."],
     [str(BIN / "mypy")],
     [str(BIN / "lint-imports")],
+    [str(BIN / "python"), "scripts/verify_login_api.py"],
     [str(BIN / "pytest"), "--cov=marketplace", "--cov-report=term-missing"],
 ):
     print("Running:", " ".join(command), flush=True)
