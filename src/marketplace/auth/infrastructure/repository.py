@@ -1,15 +1,13 @@
-from collections.abc import Iterator
-from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from hashlib import sha256
 from math import ceil
 from uuid import uuid4
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from marketplace.auth.application.dto import LoginCommand
-from marketplace.auth.application.exceptions import LoginRefusal
+from marketplace.auth.application.exceptions import AuthRefusal
 from marketplace.auth.domain.entities import (
     AdminCredentials,
     Attempt,
@@ -25,38 +23,18 @@ from marketplace.auth.infrastructure.models import (
     Merchant,
     MerchantAdmin,
 )
-
-
-def aware(value: datetime) -> datetime:
-    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+from marketplace.auth.infrastructure.transactions import auth_transaction, aware
 
 
 class SqlLoginStore:
     def __init__(self, sessions: sessionmaker[Session]) -> None:
         self.sessions = sessions
 
-    @contextmanager
-    def transaction(self, scope: bytes) -> Iterator[Session]:
-        with self.sessions() as session:
-            dialect = session.get_bind().dialect.name
-            try:
-                if dialect == "postgresql":
-                    session.connection(execution_options={"isolation_level": "READ COMMITTED"})
-                    key = int.from_bytes(sha256(scope).digest()[:8], "big", signed=True)
-                    session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
-                else:
-                    session.execute(text("BEGIN IMMEDIATE"))
-                yield session
-                session.commit()
-            except Exception:
-                session.rollback()
-                raise
-
     def reserve(
         self, command: LoginCommand, now: datetime, policy: LoginPolicy
-    ) -> Attempt | LoginRefusal:
+    ) -> Attempt | AuthRefusal:
         identifier = sha256(command.normalized_email.encode()).digest()
-        with self.transaction(b"login-ip:" + command.ip_hash) as session:
+        with auth_transaction(self.sessions, b"login-ip:" + command.ip_hash) as session:
             since = now - timedelta(seconds=policy.ip_window)
             count = (
                 session.scalar(
@@ -84,7 +62,7 @@ class SqlLoginStore:
                     if oldest
                     else policy.ip_window
                 )
-                return LoginRefusal("RATE_LIMITED", retry)
+                return AuthRefusal("RATE_LIMITED", retry)
             ticket = Attempt(
                 "la_" + uuid4().hex, identifier, command.ip_hash, command.user_agent_hash, now
             )
@@ -100,7 +78,7 @@ class SqlLoginStore:
             lock = session.get(LoginLockout, identifier)
             if lock and aware(lock.locked_until) > now:
                 record.failure_code = "ACCOUNT_LOCKED"
-                return LoginRefusal(
+                return AuthRefusal(
                     "ACCOUNT_LOCKED", max(1, ceil((aware(lock.locked_until) - now).total_seconds()))
                 )
             return ticket
@@ -127,14 +105,16 @@ class SqlLoginStore:
         grant: LoginGrant | None,
         now: datetime,
         policy: LoginPolicy,
-    ) -> MerchantSubject | LoginRefusal:
-        with self.transaction(b"login-identifier:" + attempt.identifier_hash) as session:
+    ) -> MerchantSubject | AuthRefusal:
+        with auth_transaction(
+            self.sessions, b"login-identifier:" + attempt.identifier_hash
+        ) as session:
             record = session.get(LoginAttempt, attempt.id)
             assert record is not None
             lock = session.get(LoginLockout, attempt.identifier_hash)
             if lock and aware(lock.locked_until) > now:
                 record.failure_code = "ACCOUNT_LOCKED"
-                return LoginRefusal(
+                return AuthRefusal(
                     "ACCOUNT_LOCKED", max(1, ceil((aware(lock.locked_until) - now).total_seconds()))
                 )
             candidate = grant.credentials if grant else None
@@ -182,7 +162,7 @@ class SqlLoginStore:
                     lock.updated_at = now
                 elif lock:
                     session.delete(lock)
-                return LoginRefusal("INVALID_CREDENTIALS")
+                return AuthRefusal("INVALID_CREDENTIALS")
             assert grant is not None
             planned_session = grant.session
             admin, status = current
@@ -225,19 +205,11 @@ class SqlLoginStore:
             return MerchantSubject(admin.id, admin.merchant_id, status)
 
     def abort(self, attempt: Attempt) -> None:
-        with self.transaction(b"login-identifier:" + attempt.identifier_hash) as session:
+        with auth_transaction(
+            self.sessions, b"login-identifier:" + attempt.identifier_hash
+        ) as session:
             session.execute(
                 update(LoginAttempt)
                 .where(LoginAttempt.id == attempt.id)
                 .values(failure_code="AUTH_UNAVAILABLE")
             )
-
-    def revoke_family(self, family_id: str, now: datetime) -> int:
-        """Storage operation used by acceptance T3; logout/refresh routes belong to #178/#179."""
-        with self.transaction(b"login-family:" + family_id.encode()) as session:
-            result = session.connection().execute(
-                update(AuthSession)
-                .where(AuthSession.family_id == family_id, AuthSession.revoked_at.is_(None))
-                .values(revoked_at=now, revoked_reason="ADMIN_REVOKED")
-            )
-            return result.rowcount

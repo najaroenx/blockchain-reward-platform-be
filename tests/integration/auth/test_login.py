@@ -10,7 +10,7 @@ from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select
 
-from marketplace.auth.application.dto import AccessClaims
+from marketplace.auth.application.dto import AccessClaims, CustomerAccessClaims
 from marketplace.auth.domain.entities import LoginPolicy
 from marketplace.auth.infrastructure.models import (
     AuthEvent,
@@ -50,7 +50,7 @@ class FixtureSigner:
         self.failure = False
         self.on_sign: Callable[[], None] | None = None
 
-    def sign(self, claims: AccessClaims) -> str:
+    def sign(self, claims: AccessClaims | CustomerAccessClaims) -> str:
         if self.on_sign:
             self.on_sign()
         if self.failure:

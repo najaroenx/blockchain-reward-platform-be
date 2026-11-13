@@ -1,7 +1,7 @@
 {
   "info": {
     "description": "Local validation needs migrated tables. Fixture login must run through verify_login_api.py against its isolated seeded SQLite or PostgreSQL app. Access tokens use real ES256 signatures with an ephemeral PEM key. The verifier checks signatures using the public key returned by HTTP JWKS. The signer-fail account injects a failure before calling the real signer.",
-    "name": "Merchant login and ES256 signing",
+    "name": "Authentication login, refresh and ES256 signing",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -286,6 +286,8 @@
                   "  pm.expect(data.subject.kind).to.eql(\"MERCHANT_ADMIN\");",
                   "  pm.expect(data.subject.merchantStatus).to.eql(\"PENDING\");",
                   "});",
+                  "pm.collectionVariables.set(\"loginRefresh\",",
+                  "  pm.response.headers.get(\"Set-Cookie\").match(/refreshToken=([^;]+)/)[1]);",
                   "pm.test(\"JWT envelope\", function () {",
                   "  pm.expect(pm.response.json().accessToken)",
                   "    .to.match(/^[\\w-]+\\.[\\w-]+\\.[\\w-]+$/); });",
@@ -1219,6 +1221,393 @@
         }
       ],
       "name": "Fixture login"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh body\", function () { const data=pm.response.json();",
+                  "  pm.expect(Object.keys(data).sort())",
+                  "    .to.eql([\"accessToken\",\"expiresIn\",\"tokenType\"]);",
+                  "  pm.expect(data.expiresIn).to.eql(900);",
+                  "  pm.expect(data.tokenType).to.eql(\"Bearer\"); });",
+                  "pm.test(\"Rotated secure cookie\", function () {",
+                  "  const cookie=pm.response.headers.get(\"Set-Cookie\");",
+                  "  [\"Secure\",\"HttpOnly\",\"SameSite=strict\",\"Path=/v1/auth\",\"Max-Age=2592000\"]",
+                  "    .forEach(function (flag) { pm.expect(cookie).to.include(flag); }); });",
+                  "pm.collectionVariables.set(\"rotatedRefresh\",",
+                  "  pm.response.headers.get(\"Set-Cookie\").match(/refreshToken=([^;]+)/)[1]);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Refresh rotates login session",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{loginRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh body\", function () { const data=pm.response.json();",
+                  "  pm.expect(Object.keys(data).sort())",
+                  "    .to.eql([\"accessToken\",\"expiresIn\",\"tokenType\"]);",
+                  "  pm.expect(data.expiresIn).to.eql(900);",
+                  "  pm.expect(data.tokenType).to.eql(\"Bearer\"); });",
+                  "pm.test(\"Rotated secure cookie\", function () {",
+                  "  const cookie=pm.response.headers.get(\"Set-Cookie\");",
+                  "  [\"Secure\",\"HttpOnly\",\"SameSite=strict\",\"Path=/v1/auth\",\"Max-Age=2592000\"]",
+                  "    .forEach(function (flag) { pm.expect(cookie).to.include(flag); }); });",
+                  "pm.collectionVariables.set(\"descendantRefresh\",",
+                  "  pm.response.headers.get(\"Set-Cookie\").match(/refreshToken=([^;]+)/)[1]);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Refresh rotates again",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{rotatedRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"SESSION_COMPROMISED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Refresh detects old token reuse",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{loginRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"REFRESH_TOKEN_REVOKED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Descendant is revoked",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{descendantRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"REFRESH_TOKEN_INVALID\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Missing refresh cookie",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken="
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"REFRESH_TOKEN_INVALID\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Unknown refresh cookie",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"REFRESH_TOKEN_EXPIRED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Expired refresh cookie",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{expiredRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"REFRESH_TOKEN_REVOKED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Revoked refresh cookie",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{revokedRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"REFRESH_TOKEN_REVOKED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Clear rejected cookie\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.include(\"Max-Age=0\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Disabled account refresh",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{disabledRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"Refresh error\", function () { const data=pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"AUTH_UNAVAILABLE\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/); });",
+                  "pm.test(\"Retain cookie on infrastructure failure\", function () {",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Refresh signer failure",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{failedSignerRefresh}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh"
+          }
+        }
+      ],
+      "name": "Fixture refresh"
     }
   ]
 }
