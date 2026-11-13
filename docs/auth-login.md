@@ -1,10 +1,10 @@
 # Merchant login for issue #177
 
 `POST /v1/auth/login` verifies merchant-admin credentials, records attempts, enforces lockout,
-and persists refresh-token sessions. This branch implements login, session storage, and the
-`TokenSigner` interface. Actual JWT signing, keys, issuer/audience policy, JWKS, and rotation remain
-in #182/#184. The default signer returns `503 AUTH_UNAVAILABLE` for valid credentials and creates
-no session or cookie. It never returns a mock access token.
+and persists refresh-token sessions. It uses the [ES256 signer and public JWKS](jwt-signing.md)
+when all JWT settings are configured. Key rotation remains in #184. Development/test without JWT
+configuration returns `503 AUTH_UNAVAILABLE` for valid credentials and creates no session or cookie.
+The normal API never returns a mock access token.
 
 ## Source validation and scope
 
@@ -22,7 +22,7 @@ and [OpenAPI](https://github.com/najaroenx/blockchain-reward-platform/blob/main/
   the session transaction, so a signer failure cannot leave an undisclosed session.
 - The reference OpenAPI lists fewer JWT claims than its service/types. The `AccessClaims` input follows
   the service/types: `sub`, `kind`, `mid`, `sid`, `jti`, `iat`, and `exp`. No roles or permissions are included.
-  #182 supplies the actual JWT implementation and resolves its external token contract.
+  The #182 adapter adds configured issuer/audience claims and a public-key-derived `kid`.
 - The generic test plan mentions duplicate Idempotency-Key requests, but the login contract does not
   require that header. Independent successful logins create separate sessions.
 
@@ -142,7 +142,8 @@ export TEST_POSTGRES_URL='postgresql+psycopg://reward:local-development-only@127
 .venv/bin/python scripts/verify_login_api.py --newman newman --postgres
 ```
 
-The script uses real Argon2 verification and database writes, but supplies an opaque test signer.
-It does not implement JWT signing. Newman passed 25 requests and 103 assertions against both
-SQLite and a seeded local PostgreSQL HTTP app. Run the collection's `Local validation` folder against a migrated local API;
+The script uses real Argon2 verification and database writes. It signs with an ephemeral ES256 key
+and verifies tokens against HTTP JWKS. The original #177
+run passed 25 requests and 103 assertions; the #182 collection also exercises public JWKS and real JWTs.
+Run the collection's `Local validation` folder against a migrated local API;
 the `Fixture login` folder belongs to the isolated verifier and its seeded accounts.

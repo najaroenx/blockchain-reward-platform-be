@@ -30,3 +30,14 @@ class LoginResult:
     subject: MerchantSubject
     expires_in: int
     refresh_max_age: int
+
+
+@dataclass(frozen=True)
+class SigningPublicKey:
+    kid: str
+    x: str
+    y: str
+    kty: Literal["EC"] = "EC"
+    crv: Literal["P-256"] = "P-256"
+    alg: Literal["ES256"] = "ES256"
+    use: Literal["sig"] = "sig"

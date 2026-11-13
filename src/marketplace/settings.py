@@ -2,14 +2,24 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, overload
+from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 Role = Literal["api", "worker", "indexer"]
 KMS_FIELDS = ("KMS_KEY_ARN", "KMS_REGION")
+JWT_FIELDS = ("JWT_PRIVATE_KEY_FILE", "JWT_ISSUER", "JWT_AUDIENCE")
 
 
 class ConfigurationError(ValueError):
@@ -41,11 +51,66 @@ class SharedSettings(BaseModel):
         return value
 
 
+class JwtSigningSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    private_key_file: SecretStr
+    issuer: str = Field(min_length=1, max_length=2048)
+    audience: str = Field(min_length=1, max_length=256)
+
+    @field_validator("private_key_file")
+    @classmethod
+    def absolute_key_path(cls, value: SecretStr) -> SecretStr:
+        if not Path(value.get_secret_value()).is_absolute():
+            raise ValueError("requires an absolute secret-file path")
+        return value
+
+    @field_validator("issuer")
+    @classmethod
+    def valid_issuer(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"https", "http"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or any(character.isspace() for character in value)
+        ):
+            raise ValueError("requires an HTTP(S) issuer without credentials, query or fragment")
+        return value
+
+    @field_validator("audience")
+    @classmethod
+    def valid_audience(cls, value: str) -> str:
+        if any(character.isspace() for character in value):
+            raise ValueError("audience must not contain whitespace")
+        return value
+
+
 class ApiSettings(SharedSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=3000, ge=1, le=65535)
     login_ip_limit: int = Field(default=20, ge=1)
     login_ip_window_seconds: int = Field(default=60, ge=1)
+    jwt_signing: JwtSigningSettings | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def collect_jwt_settings(cls, values: object) -> object:
+        if not isinstance(values, dict):
+            return values
+        jwt_fields = {name.lower(): name.lower().removeprefix("jwt_") for name in JWT_FIELDS}
+        if not any(name in values for name in jwt_fields):
+            return values
+        result = dict(values)
+        if result.get("jwt_signing") is not None:
+            raise ValueError("configure JWT signing once")
+        result["jwt_signing"] = {
+            target: result.pop(name) for name, target in jwt_fields.items() if name in result
+        }
+        return result
 
 
 class ChainSettings(SharedSettings):
@@ -120,6 +185,10 @@ def load_settings(
             raise ConfigurationError(
                 f"{role}: worker-only variables present: {', '.join(forbidden)}"
             )
+    if role != "api":
+        forbidden = [key for key in JWT_FIELDS if key in values]
+        if forbidden:
+            raise ConfigurationError(f"{role}: api-only variables present: {', '.join(forbidden)}")
     schemas: dict[Role, type[ApiSettings] | type[WorkerSettings] | type[IndexerSettings]] = {
         "api": ApiSettings,
         "worker": WorkerSettings,
@@ -141,6 +210,11 @@ def load_settings(
         and make_url(settings.database_url.get_secret_value()).get_backend_name() != "postgresql"
     ):
         raise ConfigurationError(f"{role}: production requires PostgreSQL")
+    if isinstance(settings, ApiSettings) and settings.environment == "production":
+        if settings.jwt_signing is None:
+            raise ConfigurationError("api: production requires JWT signing configuration")
+        if not settings.jwt_signing.issuer.startswith("https://"):
+            raise ConfigurationError("api: production JWT issuer requires HTTPS")
     return settings
 
 

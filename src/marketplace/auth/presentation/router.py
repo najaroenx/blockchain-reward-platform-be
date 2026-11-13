@@ -13,7 +13,7 @@ from starlette.exceptions import HTTPException
 
 from marketplace.auth.application.dto import LoginCommand
 from marketplace.auth.application.exceptions import LoginFailure, LoginRefusal
-from marketplace.auth.application.ports import PasswordVerifier, TokenSigner
+from marketplace.auth.application.ports import PasswordVerifier, SigningKeyPublisher, TokenSigner
 from marketplace.auth.application.use_cases import Login
 from marketplace.auth.domain.entities import LoginPolicy
 from marketplace.auth.presentation.schemas import (
@@ -31,6 +31,7 @@ class AuthDependencies:
     signer: TokenSigner
     policy: LoginPolicy = LoginPolicy()
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    key_publisher: SigningKeyPublisher | None = None
 
 
 ERRORS = {
@@ -106,7 +107,7 @@ def create_router(provider: Callable[[Request], Login]) -> APIRouter:
         },
         description=(
             "Verify merchant-admin credentials. Refresh tokens are sent only in a secure "
-            "HttpOnly cookie. Signing requires the #182 TokenSigner adapter."
+            "HttpOnly cookie. Configured ES256 signing adds issuer, audience and a JWKS key ID."
         ),
     )
     def login(
