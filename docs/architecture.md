@@ -95,7 +95,7 @@ signer configuration. No mock signer is used by the normal API entry point.
 
 Migration `0002_auth_login` adds the FEAT-03 identity/session foundation because the Python base
 did not contain those tables. It does not execute the archived SQL. Customer OTP, merchant
-onboarding, refresh/logout routes, JWT key rotation, and shared-schema reconciliation retain
+onboarding, logout/session management, JWT key rotation, and shared-schema reconciliation retain
 their separate owners. See [merchant login](auth-login.md) for source discrepancies and acceptance evidence.
 
 Rate reservations commit hashed PENDING attempts before password work and signing. Success then
@@ -107,6 +107,12 @@ preserving audit history without relying on timestamps to order a reset.
 Auth PostgreSQL writes use READ COMMITTED with transaction advisory locks for IP and identifier
 scopes. Local SQLite writes use BEGIN IMMEDIATE and enforce foreign keys. The server ignores
 forwarded headers by default; proxy trust remains a deployment decision.
+
+Refresh rotation uses a family advisory lock and the unique parent index, with signing outside
+transactions and fresh account/session checks before commit. Replay revocation commits before the
+401 response and blocks pending descendants from extending the family. Migration `0003_disabled_sessions`
+revokes sessions atomically when either owner type is disabled and guards raw session writes.
+See [refresh behavior](auth-refresh.md) for cookie/error contracts and migration details.
 
 Contracts own trading authorization on chain, balances, escrow, coupon burns, and settlement.
 The backend implements merchant login and will own wallet proof, request idempotency, transaction

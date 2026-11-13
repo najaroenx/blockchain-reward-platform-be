@@ -12,10 +12,11 @@ from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException
 
 from marketplace.auth.application.dto import LoginCommand
-from marketplace.auth.application.exceptions import LoginFailure, LoginRefusal
+from marketplace.auth.application.exceptions import AuthFailure, AuthRefusal
 from marketplace.auth.application.ports import PasswordVerifier, SigningKeyPublisher, TokenSigner
 from marketplace.auth.application.use_cases import Login
 from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.presentation.cookies import set_refresh_cookie
 from marketplace.auth.presentation.schemas import (
     ErrorDetail,
     ErrorResponse,
@@ -40,10 +41,14 @@ ERRORS = {
     "RATE_LIMITED": (429, "ส่งคำขอถี่เกินกำหนด"),
     "AUTH_UNAVAILABLE": (503, "ระบบยืนยันตัวตนยังไม่พร้อมใช้งาน"),
     "VALIDATION_FAILED": (400, "ข้อมูลคำขอไม่ถูกต้อง"),
+    "REFRESH_TOKEN_INVALID": (401, "refresh token ไม่ถูกต้อง"),
+    "REFRESH_TOKEN_EXPIRED": (401, "refresh token หมดอายุ กรุณาเข้าสู่ระบบใหม่"),
+    "REFRESH_TOKEN_REVOKED": (401, "session ถูกยกเลิก กรุณาเข้าสู่ระบบใหม่"),
+    "SESSION_COMPROMISED": (401, "session นี้ถูกยกเลิกเพื่อความปลอดภัย กรุณาเข้าสู่ระบบใหม่"),
 }
 
 
-def failure_response(refusal: LoginRefusal) -> JSONResponse:
+def failure_response(refusal: AuthRefusal) -> JSONResponse:
     status, message = ERRORS[refusal.code]
     headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
     if refusal.retry_after is not None:
@@ -57,31 +62,31 @@ def failure_response(refusal: LoginRefusal) -> JSONResponse:
     )
 
 
-class LoginRoute(APIRoute):
+class AuthRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
 
         async def handle(request: Request) -> Response:
             try:
                 return await handler(request)
-            except LoginFailure as error:
+            except AuthFailure as error:
                 return failure_response(error.refusal)
             except RequestValidationError:
-                return failure_response(LoginRefusal("VALIDATION_FAILED"))
+                return failure_response(AuthRefusal("VALIDATION_FAILED"))
             except HTTPException as error:
                 return failure_response(
-                    LoginRefusal(
+                    AuthRefusal(
                         "VALIDATION_FAILED" if error.status_code == 400 else "AUTH_UNAVAILABLE"
                     )
                 )
             except Exception:
-                return failure_response(LoginRefusal("AUTH_UNAVAILABLE"))
+                return failure_response(AuthRefusal("AUTH_UNAVAILABLE"))
 
         return handle
 
 
 def create_router(provider: Callable[[Request], Login]) -> APIRouter:
-    router = APIRouter(prefix="/v1/auth", tags=["authentication"], route_class=LoginRoute)
+    router = APIRouter(prefix="/v1/auth", tags=["authentication"], route_class=AuthRoute)
 
     @router.post(
         "/login",
@@ -126,15 +131,7 @@ def create_router(provider: Callable[[Request], Login]) -> APIRouter:
                 user_agent_hash=sha256(user_agent.encode()).digest() if user_agent else None,
             )
         )
-        response.set_cookie(
-            "refreshToken",
-            result.refresh_token,
-            max_age=result.refresh_max_age,
-            path="/v1/auth",
-            secure=True,
-            httponly=True,
-            samesite="strict",
-        )
+        set_refresh_cookie(response, result.refresh_token, result.refresh_max_age)
         response.headers["Cache-Control"] = "no-store"
         response.headers["Pragma"] = "no-cache"
         return LoginResponse(

@@ -1,5 +1,37 @@
 # Python migration verification
 
+## Current issue split
+
+After splitting the work by issue, the final suite passed 149 tests and PostgreSQL passed 78
+auth/migration tests. Each preceding branch also passed its complete checks: schema foundation 41,
+schema acceptance 53, login 75, and signer 112 tests. Three new T6/T7 cases account for the increase
+from the original 146-test snapshot. The final PostgreSQL Newman run passed 36 requests and 147
+assertions. Runtime source and API artifacts match the original snapshot byte for byte.
+
+See [issue ownership](auth-work-ownership.md) for branches, PR bases, and preserved archive refs.
+The sections below record the original implementation runs before the ownership split.
+
+## Original refresh rotation on BE-0307
+
+Verified locally on 2026-11-13:
+
+- Full suite: 146 passed. Ruff, formatting, strict mypy for 50 source files, and all six import
+  boundaries passed. OpenAPI and Postman artifacts validate and match the runtime.
+- Live PostgreSQL auth/migration suite: 75 passed. It includes 20 concurrent refreshes of one token,
+  replay while a descendant signs, rollback, all T9–T14 checks, and direct database owner guards.
+- T14 migration tests cover old disabled-owner data, downgrade/re-upgrade, and 20 session inserts
+  racing account disable. PostgreSQL and SQLite both leave no unrevoked sessions for that owner.
+- Newman passed 36 requests / 147 assertions on SQLite and PostgreSQL. The verifier checked three
+  ES256 JWTs against HTTP JWKS, inspected family revocation, and confirmed signer failure left its
+  parent session unused. Replay cases disable Newman's automatic cookie jar to send the intended token.
+- Disposable databases were removed after verification. No shared staging deployment or migration
+  of an existing local development database is claimed.
+- One simultaneous local verification run reported PostgreSQL connection timeouts and a SQLite
+  concurrent-login 503. The affected login test passed in isolation; sequential reruns passed all
+  146 tests and all 75 PostgreSQL checks without changing application timeouts.
+
+See [refresh behavior](auth-refresh.md) for source differences, migration behavior, and commands.
+
 ## ES256 signing on BE-0393
 
 Verified locally on 2026-11-13 with Python 3.12.11:

@@ -26,7 +26,11 @@
               "ACCOUNT_LOCKED",
               "RATE_LIMITED",
               "AUTH_UNAVAILABLE",
-              "VALIDATION_FAILED"
+              "VALIDATION_FAILED",
+              "REFRESH_TOKEN_INVALID",
+              "REFRESH_TOKEN_EXPIRED",
+              "REFRESH_TOKEN_REVOKED",
+              "SESSION_COMPROMISED"
             ],
             "title": "Code",
             "type": "string"
@@ -298,6 +302,32 @@
         "title": "PublicJwk",
         "type": "object"
       },
+      "RefreshResponse": {
+        "properties": {
+          "accessToken": {
+            "minLength": 1,
+            "title": "Accesstoken",
+            "type": "string"
+          },
+          "expiresIn": {
+            "const": 900,
+            "default": 900,
+            "title": "Expiresin",
+            "type": "integer"
+          },
+          "tokenType": {
+            "const": "Bearer",
+            "default": "Bearer",
+            "title": "Tokentype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessToken"
+        ],
+        "title": "RefreshResponse",
+        "type": "object"
+      },
       "SubjectResponse": {
         "properties": {
           "id": {
@@ -377,7 +407,7 @@
   },
   "info": {
     "description": "Marketplace projections and merchant login. Transaction submission is not enabled.",
-    "title": "Merchant login API",
+    "title": "Authentication API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -509,6 +539,94 @@
           }
         },
         "summary": "Login",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "description": "Read the refreshToken cookie, rotate it once, and return a signed access token. Reusing a consumed token revokes its entire family. No bearer token is required.",
+        "operationId": "refreshToken",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "refreshToken",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Refreshtoken"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Rotated refreshToken; Secure; HttpOnly; SameSite=Strict; Path=/v1/auth",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        },
+        "summary": "Refresh",
         "tags": [
           "authentication"
         ]

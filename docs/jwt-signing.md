@@ -76,7 +76,7 @@ belong to [#184](https://github.com/najaroenx/blockchain-reward-platform/issues/
 Restarting with a new key before that overlap is implemented removes the old verification key
 from JWKS and can invalidate clients' ability to verify still-live tokens.
 
-Refresh/logout endpoints remain with #178/#179. No shared staging or production deployment,
+Refresh rotation is implemented in [#178](auth-refresh.md); logout remains in #179. No shared staging or production deployment,
 cloud-secret integration, or completed key rotation is claimed.
 
 ## Acceptance evidence and commands
