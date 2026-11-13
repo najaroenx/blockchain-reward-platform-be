@@ -1,0 +1,1 @@
+"""Shared chain indexing service."""

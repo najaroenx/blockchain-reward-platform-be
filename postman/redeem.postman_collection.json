@@ -1,0 +1,3039 @@
+{
+  "info": {
+    "description": "Local mock runs against the mock-token API without admission. Adapter contract requires scripts/verify_redeem_api.py --newman PATH; its IDs are fixture scenarios, not deployed coupons. No real auth, DB commit, idempotency, or chain is verified.",
+    "name": "BE-0608 redeem admission",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"UNAUTHENTICATED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});",
+                  "pm.test(\"Bearer challenge\", function () { pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.eql(\"Bearer\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Missing token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"UNAUTHENTICATED\",\n    \"message\": \"A valid access token is required.\"\n  }\n}",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Missing token",
+              "originalRequest": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"UNAUTHENTICATED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});",
+                  "pm.test(\"Bearer challenge\", function () { pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.eql(\"Bearer\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Wrong token",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "wrong-token"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"UNAUTHENTICATED\",\n    \"message\": \"A valid access token is required.\"\n  }\n}",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Wrong token",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "wrong-token"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"IDEMPOTENCY_KEY_REQUIRED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Missing key",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"IDEMPOTENCY_KEY_REQUIRED\",\n    \"message\": \"Idempotency-Key is required.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Missing key",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Missing type",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Missing type",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Zero type",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"0\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Zero type",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"0\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Noncanonical type",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"01\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Noncanonical type",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"01\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Numeric type",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": 1}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Numeric type",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": 1}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Overflow",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639936\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Overflow",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639936\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Extra amount",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\", \"amount\": \"2\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Extra amount",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\", \"amount\": \"2\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"VALIDATION_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Extra wallet",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\", \"walletAddress\": \"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Invalid redeem request.\"\n  }\n}",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Extra wallet",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\", \"walletAddress\": \"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"REDEEM_UNAVAILABLE\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Valid request awaits adapters 1",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"REDEEM_UNAVAILABLE\",\n    \"message\": \"Redeem admission adapters are not configured.\"\n  }\n}",
+              "code": 503,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Valid request awaits adapters 1",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"REDEEM_UNAVAILABLE\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Valid request awaits adapters 115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"REDEEM_UNAVAILABLE\",\n    \"message\": \"Redeem admission adapters are not configured.\"\n  }\n}",
+              "code": 503,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Valid request awaits adapters 115792089237316195423570985008687907853269984665640564039457584007913129639935",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        }
+      ],
+      "name": "Local mock"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 202\", function () { pm.response.to.have.status(202); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"operationId\", \"status\", \"typeId\", \"amount\"], \"additionalProperties\": false, \"properties\": {\"operationId\": {\"type\": \"string\", \"minLength\": 1}, \"status\": {\"enum\": [\"PENDING\"]}, \"typeId\": {\"enum\": [\"1\"]}, \"amount\": {\"enum\": [\"1\"]}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Admission acknowledgement",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"operationId\": \"op_fixture\",\n  \"status\": \"PENDING\",\n  \"typeId\": \"1\",\n  \"amount\": \"1\"\n}",
+              "code": 202,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Admission acknowledgement",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 202\", function () { pm.response.to.have.status(202); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"operationId\", \"status\", \"typeId\", \"amount\"], \"additionalProperties\": false, \"properties\": {\"operationId\": {\"type\": \"string\", \"minLength\": 1}, \"status\": {\"enum\": [\"PENDING\"]}, \"typeId\": {\"enum\": [\"115792089237316195423570985008687907853269984665640564039457584007913129639935\"]}, \"amount\": {\"enum\": [\"1\"]}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Maximum uint256 acknowledgement",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"operationId\": \"op_fixture\",\n  \"status\": \"PENDING\",\n  \"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639935\",\n  \"amount\": \"1\"\n}",
+              "code": 202,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Maximum uint256 acknowledgement",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"UNAUTHENTICATED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});",
+                  "pm.test(\"Bearer challenge\", function () { pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.eql(\"Bearer\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Expired token fixture",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "expired-token"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"UNAUTHENTICATED\",\n    \"message\": \"A valid access token is required.\"\n  }\n}",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Expired token fixture",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "expired-token"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"WALLET_FORBIDDEN\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Wallet forbidden fixture",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "no-wallet"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"1\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"WALLET_FORBIDDEN\",\n    \"message\": \"No authorized wallet is available for this user.\"\n  }\n}",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Wallet forbidden fixture",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "no-wallet"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"1\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"COUPON_TYPE_NOT_FOUND\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 2: COUPON_TYPE_NOT_FOUND",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"2\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"COUPON_TYPE_NOT_FOUND\",\n    \"message\": \"Coupon type was not found.\"\n  }\n}",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 2: COUPON_TYPE_NOT_FOUND",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"2\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"INSUFFICIENT_BALANCE\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 3: INSUFFICIENT_BALANCE",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"3\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"INSUFFICIENT_BALANCE\",\n    \"message\": \"Coupon balance is insufficient.\"\n  }\n}",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 3: INSUFFICIENT_BALANCE",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"3\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"COUPON_NOT_STARTED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 4: COUPON_NOT_STARTED",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"4\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"COUPON_NOT_STARTED\",\n    \"message\": \"Coupon redemption has not started.\"\n  }\n}",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 4: COUPON_NOT_STARTED",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"4\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"COUPON_EXPIRED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 5: COUPON_EXPIRED",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"5\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"COUPON_EXPIRED\",\n    \"message\": \"Coupon has expired.\"\n  }\n}",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 5: COUPON_EXPIRED",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"5\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"NO_REDEEM_CODE_AVAILABLE\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 6: NO_REDEEM_CODE_AVAILABLE",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"6\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"NO_REDEEM_CODE_AVAILABLE\",\n    \"message\": \"No redeem code is available.\"\n  }\n}",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 6: NO_REDEEM_CODE_AVAILABLE",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"6\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"IDEMPOTENCY_KEY_IN_PROGRESS\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 7: IDEMPOTENCY_KEY_IN_PROGRESS",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"7\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"IDEMPOTENCY_KEY_IN_PROGRESS\",\n    \"message\": \"This request is still in progress.\"\n  }\n}",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 7: IDEMPOTENCY_KEY_IN_PROGRESS",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"7\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"IDEMPOTENCY_KEY_REUSED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 8: IDEMPOTENCY_KEY_REUSED",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"8\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"IDEMPOTENCY_KEY_REUSED\",\n    \"message\": \"Idempotency-Key was used for another request.\"\n  }\n}",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 8: IDEMPOTENCY_KEY_REUSED",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"8\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"SIGNER_UNAUTHORIZED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 9: SIGNER_UNAUTHORIZED",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"9\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"SIGNER_UNAUTHORIZED\",\n    \"message\": \"The backend signer is not authorized.\"\n  }\n}",
+              "code": 503,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 9: SIGNER_UNAUTHORIZED",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"9\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 429\", function () { pm.response.to.have.status(429); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"RATE_LIMITED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});",
+                  "pm.test(\"Retry-After\", function () { pm.expect(pm.response.headers.get(\"Retry-After\")).to.eql(\"7\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 10: RATE_LIMITED",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"10\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"RATE_LIMITED\",\n    \"message\": \"Too many requests.\"\n  }\n}",
+              "code": 429,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 10: RATE_LIMITED",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"10\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"ADMISSION_UNAVAILABLE\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 11: ADMISSION_UNAVAILABLE",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"11\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"ADMISSION_UNAVAILABLE\",\n    \"message\": \"Admission storage is unavailable.\"\n  }\n}",
+              "code": 503,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 11: ADMISSION_UNAVAILABLE",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"11\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"CONTRACT_CALL_FAILED\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 12: CONTRACT_CALL_FAILED",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"12\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"CONTRACT_CALL_FAILED\",\n    \"message\": \"The contract call could not be completed.\"\n  }\n}",
+              "code": 503,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 12: CONTRACT_CALL_FAILED",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"12\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 500\", function () { pm.response.to.have.status(500); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"INTERNAL_ERROR\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 13: INTERNAL_ERROR",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"13\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"INTERNAL_ERROR\",\n    \"message\": \"The request could not be completed.\"\n  }\n}",
+              "code": 500,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 13: INTERNAL_ERROR",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"13\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 500\", function () { pm.response.to.have.status(500); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"INTERNAL_ERROR\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 14: INTERNAL_ERROR",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"14\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"INTERNAL_ERROR\",\n    \"message\": \"The request could not be completed.\"\n  }\n}",
+              "code": 500,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 14: INTERNAL_ERROR",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"14\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 500\", function () { pm.response.to.have.status(500); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"INTERNAL_ERROR\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 15: INTERNAL_ERROR",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"15\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"INTERNAL_ERROR\",\n    \"message\": \"The request could not be completed.\"\n  }\n}",
+              "code": 500,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 15: INTERNAL_ERROR",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"15\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 500\", function () { pm.response.to.have.status(500); });",
+                  "pm.test(\"Response contract\", function () { pm.response.to.have.jsonSchema({\"type\": \"object\", \"required\": [\"error\"], \"additionalProperties\": false, \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"additionalProperties\": false, \"properties\": {\"code\": {\"enum\": [\"INTERNAL_ERROR\"]}, \"message\": {\"type\": \"string\"}}}}}); });",
+                  "pm.test(\"No infrastructure detail or token\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"private-fixture\");",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.environment.get(\"accessToken\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fixture 16: INTERNAL_ERROR",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"typeId\": \"16\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "redeem-postman-{{$guid}}"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/coupons/redeem"
+          },
+          "response": [
+            {
+              "body": "{\n  \"error\": {\n    \"code\": \"INTERNAL_ERROR\",\n    \"message\": \"The request could not be completed.\"\n  }\n}",
+              "code": 500,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "name": "Fixture 16: INTERNAL_ERROR",
+              "originalRequest": {
+                "auth": {
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "value": "{{accessToken}}"
+                    }
+                  ],
+                  "type": "bearer"
+                },
+                "body": {
+                  "mode": "raw",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  },
+                  "raw": "{\"typeId\": \"16\"}"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "redeem-postman-{{$guid}}"
+                  }
+                ],
+                "method": "POST",
+                "url": "{{baseUrl}}/v1/coupons/redeem"
+              }
+            }
+          ]
+        }
+      ],
+      "name": "Adapter contract"
+    }
+  ]
+}
