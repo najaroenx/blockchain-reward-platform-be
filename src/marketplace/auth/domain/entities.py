@@ -31,6 +31,19 @@ class MerchantSubject:
 
 
 @dataclass(frozen=True)
+class CustomerSubject:
+    id: str
+
+
+@dataclass(frozen=True)
+class RefreshCandidate:
+    session_id: str
+    family_id: str
+    subject: MerchantSubject | CustomerSubject
+    user_agent_hash: bytes | None
+
+
+@dataclass(frozen=True)
 class AdminCredentials:
     subject: MerchantSubject
     password_hash: str = field(repr=False)
