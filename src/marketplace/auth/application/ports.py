@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Protocol
 
-from marketplace.auth.application.dto import AccessClaims, LoginCommand
+from marketplace.auth.application.dto import AccessClaims, LoginCommand, SigningPublicKey
 from marketplace.auth.application.exceptions import LoginRefusal
 from marketplace.auth.domain.entities import (
     AdminCredentials,
@@ -17,9 +17,11 @@ class PasswordVerifier(Protocol):
 
 
 class TokenSigner(Protocol):
-    """#182 supplies signing, issuer/audience configuration, keys, and algorithm policy."""
-
     def sign(self, claims: AccessClaims) -> str: ...
+
+
+class SigningKeyPublisher(Protocol):
+    def public_keys(self) -> tuple[SigningPublicKey, ...]: ...
 
 
 class LoginStore(Protocol):

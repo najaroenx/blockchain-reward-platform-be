@@ -8,12 +8,35 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 from fastapi.testclient import TestClient
 from psycopg import sql
 from sqlalchemy.engine import make_url
 
 from marketplace.main import create_app
-from marketplace.settings import ApiSettings
+from marketplace.settings import ApiSettings, JwtSigningSettings
+
+
+@pytest.fixture
+def jwt_key_file(tmp_path: Path) -> Path:
+    path = tmp_path / "jwt-secret.pem"
+    path.write_bytes(
+        ec.generate_private_key(ec.SECP256R1()).private_bytes(
+            Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+        )
+    )
+    path.chmod(0o600)
+    return path
+
+
+@pytest.fixture
+def jwt_settings(jwt_key_file: Path) -> JwtSigningSettings:
+    return JwtSigningSettings(
+        private_key_file=str(jwt_key_file),
+        issuer="https://auth.example.test",
+        audience="reward-api",
+    )
 
 
 @contextmanager
