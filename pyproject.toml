@@ -63,13 +63,13 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "Feature domains are independent of application and adapters"
 type = "forbidden"
-source_modules = ["marketplace.listings.domain", "marketplace.coupons.domain"]
+source_modules = ["marketplace.listings.domain", "marketplace.coupons.domain", "marketplace.auth.domain"]
 forbidden_modules = [
   "fastapi", "pydantic", "sqlalchemy",
-  "marketplace.listings.application", "marketplace.coupons.application",
-  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure",
+  "marketplace.listings.application", "marketplace.coupons.application", "marketplace.auth.application",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure",
   "marketplace.infrastructure",
-  "marketplace.listings.presentation", "marketplace.coupons.presentation",
+  "marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation",
   "marketplace.settings", "marketplace.logging_config",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
@@ -77,12 +77,12 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "Feature applications depend on domain and ports"
 type = "forbidden"
-source_modules = ["marketplace.listings.application", "marketplace.coupons.application"]
+source_modules = ["marketplace.listings.application", "marketplace.coupons.application", "marketplace.auth.application"]
 forbidden_modules = [
   "fastapi", "pydantic", "sqlalchemy",
-  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure",
   "marketplace.infrastructure",
-  "marketplace.listings.presentation", "marketplace.coupons.presentation",
+  "marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation",
   "marketplace.settings", "marketplace.logging_config",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
@@ -90,19 +90,19 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "Feature presentations do not construct infrastructure"
 type = "forbidden"
-source_modules = ["marketplace.listings.presentation", "marketplace.coupons.presentation"]
+source_modules = ["marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation"]
 forbidden_modules = [
   "sqlalchemy", "marketplace.infrastructure",
-  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure",
+  "marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Feature infrastructure does not depend on presentation"
 type = "forbidden"
-source_modules = ["marketplace.listings.infrastructure", "marketplace.coupons.infrastructure"]
+source_modules = ["marketplace.listings.infrastructure", "marketplace.coupons.infrastructure", "marketplace.auth.infrastructure"]
 forbidden_modules = [
-  "fastapi", "marketplace.listings.presentation", "marketplace.coupons.presentation",
+  "fastapi", "marketplace.listings.presentation", "marketplace.coupons.presentation", "marketplace.auth.presentation",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
 
@@ -111,7 +111,7 @@ name = "Settings and logging are independent of application layers"
 type = "forbidden"
 source_modules = ["marketplace.settings", "marketplace.logging_config"]
 forbidden_modules = [
-  "marketplace.listings", "marketplace.coupons", "marketplace.infrastructure",
+  "marketplace.listings", "marketplace.coupons", "marketplace.auth", "marketplace.infrastructure",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]
 
@@ -120,6 +120,6 @@ name = "Shared infrastructure is independent of features"
 type = "forbidden"
 source_modules = ["marketplace.infrastructure"]
 forbidden_modules = [
-  "fastapi", "marketplace.listings", "marketplace.coupons",
+  "fastapi", "marketplace.listings", "marketplace.coupons", "marketplace.auth",
   "marketplace.main", "marketplace.worker", "marketplace.indexer",
 ]

@@ -1,5 +1,6 @@
 from alembic import context
 
+from marketplace.auth.infrastructure import models as auth_models  # noqa: F401
 from marketplace.infrastructure.database import Base, Database
 from marketplace.listings.infrastructure import models  # noqa: F401
 from marketplace.settings import load_settings
