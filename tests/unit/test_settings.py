@@ -156,3 +156,42 @@ def test_mock_auth_configuration_is_validated_without_echoing_values(
             environ={"DATABASE_URL": "sqlite:///local.db", "MOCK_AUTH_ENABLED": "true", **values},
         )
     assert "SECRET" not in str(error.value)
+
+
+def test_jwt_verification_configuration_loads_from_api_environment(tmp_path: Path) -> None:
+    settings = load_settings(
+        "api",
+        root=tmp_path,
+        environ={
+            "DATABASE_URL": "sqlite:///local.db",
+            "JWT_PUBLIC_KEY_FILE": "/run/config/public.pem",
+            "JWT_ISSUER": "https://auth.example.test",
+            "JWT_AUDIENCE": "reward-api",
+        },
+    )
+    assert settings.jwt_public_key_file == Path("/run/config/public.pem")
+    assert settings.jwt_issuer == "https://auth.example.test"
+    assert settings.jwt_audience == "reward-api"
+
+
+@pytest.mark.parametrize("missing", ["jwt_public_key_file", "jwt_issuer", "jwt_audience"])
+def test_partial_jwt_verification_configuration_is_rejected(missing: str) -> None:
+    values = {
+        "jwt_public_key_file": "/run/config/public.pem",
+        "jwt_issuer": "https://auth.example.test",
+        "jwt_audience": "reward-api",
+    }
+    del values[missing]
+    with pytest.raises(ValidationError, match="JWT verification requires"):
+        ApiSettings.model_validate({"database_url": "sqlite:///:memory:", **values})
+
+
+def test_mock_auth_cannot_override_configured_jwt_verification() -> None:
+    with pytest.raises(ValidationError, match="cannot be enabled together"):
+        ApiSettings(
+            database_url="sqlite:///:memory:",
+            mock_auth_enabled=True,
+            jwt_public_key_file=Path("/run/config/public.pem"),
+            jwt_issuer="https://auth.example.test",
+            jwt_audience="reward-api",
+        )

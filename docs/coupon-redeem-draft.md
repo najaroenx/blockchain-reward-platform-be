@@ -2,7 +2,8 @@
 
 `POST /v1/coupons/redeem` is registered in `main.py`. The route validates requests,
 builds a concrete command, and calls `RedeemCoupons` to construct a payload with `amount=1`.
-Production authentication, deployment resolution, and database admission are not implemented.
+ES256 token verification is implemented for AC2. SQL admission and idempotency are implemented
+for AC4–7 when injected with trusted context. Wallet mapping and deployment resolution remain open.
 
 `create_app(..., redeem=RedeemDependencies(...))` supplies the authentication callback and
 an optional use case with its adapters. Authentication can be wired before deployment and admission.
@@ -27,8 +28,9 @@ The [README mock token example](../README.md#ทดลองด้วย-mock-to
 
 ## Data flow and adapter obligations
 
-1. The production authentication callback must verify the token and wallet ownership.
-   JWT claim names and issuer configuration remain owned by the auth task.
+1. `JwtWalletAuthenticator` verifies ES256 tokens using the public key, issuer, audience,
+   header, and claims emitted by #182. See [AC2 configuration and tests](api/redeem.md#access-token-verification-ac2).
+   Verification happens before wallet lookup or admission. Wallet ownership remains AC3.
 2. The callback returns an `AuthenticatedWallet`. It can use `WalletResolver` to resolve one.
    Constructing this DTO alone does not verify identity or wallet ownership.
 3. Presentation validates `RedeemCouponRequest` and constructs `RedeemCouponCommand`.
@@ -40,7 +42,8 @@ The [README mock token example](../README.md#ทดลองด้วย-mock-to
    The payload contains no access token.
 6. The use case calls `RedeemAdmissionStore.admit`. The adapter must atomically record
    idempotency, operation, and outbox before returning, or replay a committed acknowledgement.
-   The route returns HTTP 202 after the adapter returns. The DB adapter remains unimplemented.
+   `SqlRedeemAdmissionStore` implements this port using migration `0002_redeem_admission`.
+   The route returns HTTP 202 after commit, or replays the stored response bytes.
 
 `PENDING` acknowledges admission, not successful redemption. The worker under #244 must use
 the original operation ID and call `redeemFrom(wallet_address, type_id, 1)`.
@@ -75,7 +78,12 @@ type ID, and amount only.
 `tests/integration/coupons/test_redeem.py` exercises HTTP with adapter doubles. The tests cover
 the maximum uint256 value, fixed amount, trusted payload fields, invalid bodies, extra fields,
 required headers, adapter rejection, admission failure, default 503 behavior, and OpenAPI.
-These tests do not verify token signatures, wallet ownership, durable admission, or chain behavior.
+Those adapter-double tests do not verify token signatures, wallet ownership, durable admission,
+or chain behavior. `test_admission.py` separately uses real operation/idempotency/outbox tables
+and the SQL adapter to verify AC4–7, including 20 overlapping HTTP requests and atomic rollback.
+`test_jwt_auth.py` separately verifies real ES256 signatures and rejection
+before wallet lookup or SQL writes, with a valid-token SQL write control. Its database tables
+are test probes, not a production admission implementation.
 
 `scripts/verify_redeem_api.py` validates the generated OpenAPI and Postman artifacts.
 `Local mock` exercises the current mock-token API, where a valid request still returns 503.
@@ -92,15 +100,18 @@ adapters. This does not complete issue #224 or establish readiness to accept rea
 
 ## Dependencies still open
 
-- Agree the auth adapter and wallet mapping with the token task.
+- Connect a trusted subject-to-wallet mapping to the verified #182 token subject (AC3).
 - Confirm chain, addresses, implementation revision, callback wiring, and signer rights.
   The bundled ABI pins `1dc42d5`; the issue cites `5639bfe`. Deployment remains unverified.
-- Agree schema and idempotency outcomes with #147/#213, including fingerprinting the
-  resolved wallet and deployment, replay, key conflicts, and concurrent requests.
-- Update #244 from the legacy per-code burn flow to `redeemFrom` and receipt/events.
-- Implement durable atomic admission, idempotency replay and conflicts, and concurrent-request behavior.
+- Coordinate the new shared admission schema with #147/#213. SQL admission uses #147's
+  first-statement claim, unsalted fingerprint, and replay-after-concurrent-commit behavior.
+  The response column is text for exact-byte replay; the legacy pack used JSONB.
+- #244 has an explicit redeemFrom handler/projector tested locally; production runner,
+  signing/nonce ownership, outbox publication and confirmation/reorg policies remain open.
+- Wire the implemented SQL admission adapter after wallet/deployment adapters are verified.
 - Wire production adapters to the typed error contract, establish RPC error origin, and implement rate limits.
-- Complete verified deployment integration and post-202 operation error handling with #244.
+- Confirm the real deployment and production adapters; local post-202 outcomes are tested.
+  Current acceptance status is kept in [redeem state](redeem-state.md).
 
 Contract evidence and settlement behavior are recorded in [contract validation](contract-validation.md).
 Burning, consuming a FIFO code, and applicable settlement happen within one transaction.

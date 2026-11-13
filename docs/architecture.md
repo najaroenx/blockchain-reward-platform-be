@@ -47,6 +47,8 @@ src/marketplace/
     application/ports.py           wallet, deployment, and admission adapter contracts
     application/use_cases.py       resolve deployment and admit a fixed amount of one
     infrastructure/mock_auth.py    local fixture token mapped to a fixed user and wallet
+    infrastructure/jwt_auth.py     ES256 verification before trusted wallet resolution
+    infrastructure/admission.py    atomic SQL admission and byte-identical idempotency replay
     infrastructure/contract_errors.py  classification of decoded errors with established origin
     presentation/router.py         redeem route and injected dependencies
     presentation/errors.py         centralized error status, message, headers, and OpenAPI examples
@@ -58,7 +60,7 @@ migrations/                        Alembic schema owned by this backend
 tests/conftest.py                  shared fixtures
 tests/unit/                        configuration, logging, and reference tests
 tests/integration/listings/         catalog HTTP and database tests
-tests/integration/coupons/          redeem HTTP tests using adapter doubles
+tests/integration/coupons/          redeem HTTP, signed JWT, and real SQL admission tests
 tests/integration/                 shared migration and process tests
 scripts/verify.py                  repeatable verification entry point
 scripts/verify_redeem_api.py       OpenAPI and Postman export/check; optional Newman fixtures
@@ -68,12 +70,13 @@ scripts/sync_contract_reference.py reproducible ABI extraction from the pinned G
 The installable package is `marketplace` under `src/`. Organize by feature first, then by domain,
 application, infrastructure, and presentation within each feature. Listings owns the existing
 catalog read use cases, projection models, repository, and HTTP endpoints. Coupons owns the redeem
-route, concrete DTOs, and admission use case. Coupon persistence adapters, creation, and minting
+route, concrete DTOs, admission use case, and SQL admission adapter. Creation and minting
 remain unimplemented.
 
 Shared connection management and ABI reference assets stay in the package-level infrastructure.
-Feature infrastructure owns its ORM models and queries. Shared infrastructure does not import
-features. Database migrations explicitly register the implemented feature models.
+Feature infrastructure owns feature projection models and queries. Shared operation, idempotency,
+and outbox models belong to shared infrastructure, which does not import features. Database
+migrations explicitly register both shared and implemented feature models.
 
 The system remains a modular monolith. CLI entry points are `reward-api`, `reward-worker`, and
 `reward-indexer`, targeting `marketplace.main`, `marketplace.worker.main`, and
@@ -89,9 +92,34 @@ use case with deployment and admission adapters. Authentication can be wired bef
 Constructing DTOs does not verify wallets or deployments.
 
 The redeem route requires a bearer token and an `Idempotency-Key` of 8 to 255 characters.
-With mock auth disabled and no injected dependencies, a request with a bearer token returns
+With neither JWT configuration nor mock auth and no injected dependencies, a supplied token returns
 `503 REDEEM_UNAVAILABLE`. Missing bearer credentials return 401. Only the redeem route maps
 request validation failures to HTTP 400. Catalog validation retains its existing HTTP 422 behavior.
+
+`JWT_PUBLIC_KEY_FILE`, `JWT_ISSUER`, and `JWT_AUDIENCE` configure ES256 verification compatible
+with #182. All three are required together, and mock auth must be disabled. The public P-256 key
+is loaded at startup. The verifier checks signature, issuer, audience, expiry, required identity
+claims, and the RFC 7638 key ID before calling `WalletResolver`. Invalid tokens return 401.
+The default JWT configuration has no wallet resolver and returns 503 after token verification;
+trusted wallet authorization remains separate work. Real signed-token HTTP
+tests prove rejected tokens cause no wallet lookup, admission call, or SQL write on SQLite and
+optional PostgreSQL. Their operation/outbox write probes do not implement production admission.
+
+`SqlRedeemAdmissionStore` now provides actual admission separately from the AC2 probes. Shared
+operation/idempotency/outbox models live in `infrastructure/operation_models.py` and migration
+`0002_redeem_admission`; the feature adapter depends on that shared persistence layer. It claims
+idempotency first, commits operation/payload/outbox/acknowledgement together, and returns only after
+commit. Fingerprinting is shared in `infrastructure/idempotency.py`. PostgreSQL admission uses
+READ COMMITTED for replay after a concurrent insert commits; other readers keep their isolation.
+The default app still lacks trusted wallet/deployment adapters and remains unavailable for writes.
+Real admission HTTP tests verify 20 overlapping requests create one operation and outbox.
+
+Explicit `worker/redeem.py` and `indexer/redeem.py` use persisted signed transactions and receipt
+correlation through `coupons/infrastructure/execution_store.py` and `receipts.py`. Migration
+`0003_redeem_execution` adds transaction steps, deduplicated events, mined results and preflight
+refusals. The local test signer checks raw calldata/identity before handing bytes to the handler.
+The production CLI remains disabled; signing/nonce allocation, outbox publication and finality/reorg
+adapters require separate confirmation. See [redeem state](redeem-state.md) for the short status.
 
 `ApiSettings` supports `MOCK_AUTH_ENABLED`, `MOCK_AUTH_TOKEN`, `MOCK_AUTH_USER_ID`, and
 `MOCK_AUTH_WALLET_ADDRESS`. Defaults are `false`, `mock-redeem-token`, `mock-user`, and
@@ -146,8 +174,8 @@ No public endpoint writes listings, submits transactions, mints coupons, or rele
 `RedeemCoupons` copies the trusted wallet, chain, and contract into a payload with `amount=1`.
 The route returns HTTP 202 only after the admission adapter returns its acknowledgement.
 The adapter contract requires atomic idempotency, operation, and outbox persistence before returning.
-That persistence is not implemented. HTTP tests use adapter doubles and do not prove DB commits,
-idempotency replay, concurrency, or a live deployment.
+The SQL adapter implements that persistence. Its HTTP tests use actual migrated tables for DB
+commit, replay, and concurrency, with wallet/deployment fixtures. No live deployment is inferred.
 
 SQLite is a local development/test adapter. PostgreSQL with psycopg is required in production.
 Database sessions belong to one request and close afterward. Alembic owns schema changes; the
@@ -166,7 +194,7 @@ Tests use [Starlette's supported HTTPX2 test client](https://www.starlette.io/te
 | --- | --- |
 | Intended deployment | Confirm chain ID, RPC, deployment block, Coupon/Vault/THB/proxy addresses, implementation address, and implementation revision/runtime code. The vendored ABI commit is only a candidate. |
 | Wallet custody and signing | Decide user-signed transactions versus worker custody/KMS, how users prove wallet ownership, and which operations may use `redeemFrom`. |
-| Authentication | Choose identity provider or OTP delivery, sessions, account roles, merchant membership, revocation, and wallet-to-user authorization. |
+| Authentication | Connect the #177/#182 login and signer stack, define wallet-to-user authorization and revocation policy. Redeem verifies ES256 access tokens; login/session implementations live on their issue branches. |
 | Points | Confirm the deployed ERC-20 addresses and precision. Contract source accepts ERC-20 payments, not a backend-only points balance or native ETH. |
 | Queue and operations | Select queue/storage, retries, idempotency scope, nonce ownership, replacement policy, and receipt/finality tracking before implementing a transaction worker. |
 | Indexing and reorgs | Select start block, finality policy, replay/reorg rollback, checkpoint ownership, and deployment-upgrade handling before enabling a projection writer. |

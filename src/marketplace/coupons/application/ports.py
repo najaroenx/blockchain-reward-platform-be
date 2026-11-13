@@ -1,4 +1,4 @@
-"""Adapter contracts for #224; production adapters are not implemented yet.
+"""Adapter contracts for #224; SQL admission is implemented, wallet/deployment are pending.
 
 Expected failures use RedeemFailure with a public code. Unknown exceptions are
 sanitized at the HTTP boundary. Decode RPC failures against the verified ABI and

@@ -5,9 +5,11 @@ SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ 
 แยก feature ก่อน แล้วแบ่ง layers ภายใน และรันเป็น modular monolith
 
 สถานะ: API, config แยก process, logging, database migrations และ catalog สำหรับอ่าน projection
-ใช้งานได้ ส่วน worker/indexer มีคำสั่งตรวจ config แต่ **ยังไม่ส่งธุรกรรมหรืออ่าน chain จริง**
+ใช้งานได้ ส่วน CLI worker/indexer **ยังไม่เปิด execution production**
+มี redeem handler/projector ที่ตรวจ integration บน local chain แล้ว ดู [สถานะ redeem](docs/redeem-state.md)
 มี route และ use case สำหรับรับคำขอ redeem แล้ว แต่ค่าเริ่มต้นยังไม่รับงานจนกว่าจะต่อ adapters
-สำหรับ auth, deployment ที่ยืนยันแล้ว และการบันทึก admission จริง ยังไม่มี purchase endpoint
+สำหรับ wallet mapping, deployment ที่ยืนยันแล้ว และการบันทึก admission จริง
+มีตัวตรวจ JWT แบบ ES256 จาก #182 แล้ว ยังไม่มี purchase endpoint
 
 ## ติดตั้ง
 
@@ -89,12 +91,18 @@ Validation ของ route นี้ตอบ HTTP 400 และปฏิเส�
 
 `main.py` register route นี้แล้ว โดยรับ `RedeemDependencies` ผ่าน `create_app(..., redeem=...)`
 สามารถต่อ authentication ก่อน แล้วค่อยต่อ use case สำหรับ deployment และ DB admission ได้
-เมื่อไม่ได้ต่อ adapters และปิด mock auth คำขอที่มี bearer token ตอบ `503 REDEEM_UNAVAILABLE`
+เมื่อไม่ได้ตั้งค่า JWT และปิด mock auth คำขอที่มี bearer token ตอบ `503 REDEEM_UNAVAILABLE`
 ส่วนคำขอที่ไม่มี bearer token ตอบ 401
 
 Tests ต่อ adapters จำลองเพื่อตรวจ HTTP, DTO และ payload ที่มี amount เป็น 1
-ยังไม่มี production token verification, wallet authorization, deployment resolver หรือ DB admission
-จึงยังไม่ยืนยัน atomic operation/outbox, idempotency replay หรือผลบน chain
+มี JWT verification จริงผ่าน `JWT_PUBLIC_KEY_FILE`, `JWT_ISSUER` และ `JWT_AUDIENCE`
+แล้ว โดยปิด `MOCK_AUTH_ENABLED` ตัวตรวจใช้ public key P-256 ของ signer #182 ตรวจ signature,
+issuer, audience, expiry และ claims ก่อนเรียก wallet resolver หรือ admission
+Token ที่ถูกปฏิเสธได้ 401; token ที่ผ่านยังได้ 503 จนกว่าจะต่อ adapters ที่เหลือ
+มี `SqlRedeemAdmissionStore` และ migration สำหรับ operation/idempotency/outbox แล้ว
+ทดสอบ atomic commit, replay, key ชน และ 20 requests พร้อมกันด้วย DB จริง
+ยังไม่มี wallet authorization และ deployment resolver จึงยังไม่เปิดรับงานจาก config ค่าเริ่มต้น
+อ่านวิธีประกอบ adapters และขอบเขตทดสอบใน [AC4–7](docs/api/redeem.md#durable-admission-and-idempotency-ac47)
 อ่านรายละเอียดใน [Redeem admission](docs/coupon-redeem-draft.md)
 ส่วน [API contract และ error codes](docs/api/redeem.md) อธิบาย OpenAPI, Postman และผลลัพธ์แต่ละแบบ
 
@@ -275,7 +283,8 @@ Import Linter ตรวจขอบเขตทั้ง 6 ข้อผ่าน
 
 แต่ละ layer ของ `coupons/` มี `__init__.py` เพื่อเก็บโครงสร้างเป็น Python package
 `main.py` register redeem router แล้ว และ `coupons/infrastructure/mock_auth.py` มี mock token adapter
-ส่วน API สร้างคูปอง, mint และ production adapters ยังไม่มี implementation
+ส่วน `coupons/infrastructure/jwt_auth.py` ตรวจ access token ES256 สำหรับ AC2
+ส่วน API สร้างคูปอง, mint และ wallet/deployment adapters ยังไม่มี implementation
 
 ## สิ่งที่ยังต้องตัดสินใจ
 

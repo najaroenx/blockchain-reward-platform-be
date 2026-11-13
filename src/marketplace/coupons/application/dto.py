@@ -44,3 +44,4 @@ class RedeemCouponResult:
     type_id: int
     status: Literal["PENDING"] = field(default="PENDING", init=False)
     amount: Literal[1] = field(default=1, init=False)
+    response_body: str | None = field(default=None, repr=False)

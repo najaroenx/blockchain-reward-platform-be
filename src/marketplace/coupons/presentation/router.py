@@ -101,13 +101,18 @@ def create_router(dependencies: RedeemDependencies | None) -> APIRouter:
         idempotency_key: Annotated[
             str, Header(alias="Idempotency-Key", min_length=8, max_length=255)
         ],
-    ) -> RedeemCouponResponse:
+    ) -> RedeemCouponResponse | Response:
         redeemer = configured_redeemer()
         result = redeemer.execute(
             RedeemCouponCommand(
                 wallet=wallet, type_id=int(body.typeId), idempotency_key=idempotency_key
             )
         )
+        if result.response_body is not None:
+            RedeemCouponResponse.model_validate_json(result.response_body)
+            return Response(
+                content=result.response_body, status_code=202, media_type="application/json"
+            )
         return RedeemCouponResponse(operationId=result.operation_id, typeId=str(result.type_id))
 
     return router
