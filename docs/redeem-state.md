@@ -1,6 +1,6 @@
 # Redeem — สถานะงาน
 
-อัปเดต 2026-11-13 · issue #224 · branch `BE-0608`
+อัปเดต 2026-11-16 · issue #224 · branch `BE-0608`
 
 | AC | สถานะ | ทำแล้ว / เหลือ |
 |---|---|---|
@@ -14,10 +14,11 @@
 | 14 | ผ่าน mapping | บันทึกใน [#213](https://github.com/najaroenx/blockchain-reward-platform/issues/213) แล้ว; T8 ยัง PENDING |
 | 15 | ผ่าน | DTO/OpenAPI/Postman/error mapping |
 
-หลักฐานล่าสุด: 226 tests ทั่วไปผ่าน; admission PostgreSQL 22 tests ผ่าน;
+หลักฐานล่าสุด: 226 tests ทั่วไปผ่าน; PostgreSQL 65 tests ผ่าน (admission 22 + JWT 43);
 handler/projector + local EVM + PostgreSQL 21 tests ผ่าน
 ([DB tests](../tests/integration/coupons/test_admission.py), [chain tests](../tests/integration/coupons/test_execution_chain.py)).
-ติดตามงานผ่าน [PR #3](https://github.com/najaroenx/blockchain-reward-platform-be/pull/3) → `recreate/python-backend`; checkbox บน issue ยังไม่อัปเดตตามงานล่าสุด
+ติดตามงานผ่าน [PR #3](https://github.com/najaroenx/blockchain-reward-platform-be/pull/3) → `recreate/python-backend`; issue ติ๊ก 14/15 ข้อ เหลือ AC3
+[รายงานและ ZIP หลักฐานตรวจสอบ](review/redeem.md) รวม JUnit, logs, source commit และ checksum
 
 ขอบเขตตรวจรับรอบนี้: local chain จาก contract commit `1dc42d5`; ยังไม่มี production
 ทำ handler/projector บน local ตามที่ยืนยันแล้ว; บันทึก raw tx ก่อนส่งและคืนผลเดิมเมื่อ retry
