@@ -1,0 +1,257 @@
+{
+  "info": {
+    "name": "Merchant signup",
+    "description": "Local signup collection for the mock wallet provider.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create pending merchant",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{signupKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/merchants",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Sample merchant\", \"admin\": {\"email\": \"{{signupEmail}}\", \"displayName\": \"Sample Admin\", \"password\": \"fixture-test-password\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const ref = pm.variables.replaceIn('{{$guid}}');",
+              "pm.collectionVariables.set('signupKey', 'signup-' + ref);",
+              "pm.collectionVariables.set('signupEmail', ref + '@example.com');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const parsed = pm.response.json();",
+              "pm.test('Pending merchant and provision', () => {",
+              "  pm.expect(parsed.status).to.eql('PENDING');",
+              "  pm.expect(parsed.provisioning.status).to.eql('PENDING');",
+              "  pm.expect(parsed.wallet.ready).to.eql(false);",
+              "});",
+              "pm.test('Location refers to this merchant', () => pm.expect(pm.response.headers.get('Location')).to.eql('/v1/merchants/' + parsed.merchantId));",
+              "pm.collectionVariables.set('signupResponse', pm.response.text());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay merchant signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{signupKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/merchants",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Sample merchant\", \"admin\": {\"email\": \"{{signupEmail}}\", \"displayName\": \"Sample Admin\", \"password\": \"fixture-test-password\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Same response bytes', () => pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get('signupResponse')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject the key with a changed password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{signupKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/merchants",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Sample merchant\", \"admin\": {\"email\": \"{{signupEmail}}\", \"displayName\": \"Sample Admin\", \"password\": \"other-fixture-test-password\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Changed request', () => pm.expect(pm.response.json().error.code).to.eql('IDEMPOTENCY_KEY_REUSED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject an already registered email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{signupKey}}-different"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/merchants",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Sample merchant\", \"admin\": {\"email\": \"{{signupEmail}}\", \"displayName\": \"Sample Admin\", \"password\": \"fixture-test-password\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Email is taken', () => pm.expect(pm.response.json().error.code).to.eql('EMAIL_TAKEN'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a missing idempotency key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/merchants",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Sample merchant\", \"admin\": {\"email\": \"{{signupEmail}}\", \"displayName\": \"Sample Admin\", \"password\": \"fixture-test-password\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Key required', () => pm.expect(pm.response.json().error.code).to.eql('IDEMPOTENCY_KEY_REQUIRED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject short passwords",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{signupKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/merchants",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Sample merchant\", \"admin\": {\"email\": \"{{signupEmail}}\", \"displayName\": \"Sample Admin\", \"password\": \"short\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Invalid body', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_FAILED'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
