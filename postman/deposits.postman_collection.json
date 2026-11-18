@@ -1,0 +1,247 @@
+{
+  "info": {
+    "name": "THB deposit admission",
+    "description": "Local development collection for the mock PSP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": "mock-redeem-token"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create pending deposit",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{depositKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/deposits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"amountSatang\": \"10050\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('depositKey', 'dep-' + pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const deposit = pm.response.json();",
+              "pm.test('Exact base units', () => pm.expect(deposit.amountBase).to.eql('100500000000000000000'));",
+              "pm.test('Pending with mock checkout', () => {",
+              "  pm.expect(deposit.status).to.eql('PENDING_PAYMENT');",
+              "  pm.expect(deposit.paymentUrl).to.match(/^https:\\/\\/payments\\.invalid\\//);",
+              "});",
+              "pm.collectionVariables.set('depositId', deposit.depositId);",
+              "pm.collectionVariables.set('depositResponse', pm.response.text());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay the same key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{depositKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/deposits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"amountSatang\": \"10050\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Same response bytes', () => pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get('depositResponse')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get deposit status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/deposits/{{depositId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('No payment confirmation', () => pm.expect(pm.response.json().confirmedAt).to.be.null);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject changed amount with same key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{depositKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/deposits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"amountSatang\": \"10051\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Key conflict', () => pm.expect(pm.response.json().error.code).to.eql('IDEMPOTENCY_KEY_REUSED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject amount below minimum",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{depositKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/deposits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"amountSatang\": \"1999\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Amount validation', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_FAILED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject missing access token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/deposits/{{depositId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
