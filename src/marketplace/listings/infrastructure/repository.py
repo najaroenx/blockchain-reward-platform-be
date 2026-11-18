@@ -1,4 +1,6 @@
-from sqlalchemy import func, select
+from time import time
+
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from marketplace.listings.domain.entities import Listing, Marketplace
@@ -6,6 +8,10 @@ from marketplace.listings.infrastructure.models import (
     ListingProjection,
     ProjectionCheckpoint,
 )
+
+
+def _active_at(timestamp: int) -> ColumnElement[bool]:
+    return ListingProjection.active.is_(True) & (ListingProjection.coupon_expires_at >= timestamp)
 
 
 class SqlListingReader:
@@ -22,22 +28,41 @@ class SqlListingReader:
         conditions = (
             ListingProjection.chain_id == marketplace.chain_id,
             ListingProjection.marketplace_address == marketplace.address,
-            ListingProjection.active.is_(True),
+            _active_at(int(time())),
         )
+        rows = (
+            self.session.execute(
+                select(ListingProjection, func.count().over())
+                .where(*conditions)
+                .order_by(ListingProjection.listed_at.desc(), ListingProjection.listing_id)
+                .limit(limit)
+                .offset(offset)
+            )
+            .tuples()
+            .all()
+        )
+        if rows:
+            return tuple(row.to_domain(active=True) for row, _ in rows), rows[0][1]
+        if offset == 0:
+            return (), 0
         total = self.session.scalar(
             select(func.count()).select_from(ListingProjection).where(*conditions)
         )
-        rows = self.session.scalars(
-            select(ListingProjection)
-            .where(*conditions)
-            .order_by(ListingProjection.listed_at.desc(), ListingProjection.listing_id)
-            .limit(limit)
-            .offset(offset)
-        )
-        return tuple(row.to_domain() for row in rows), total or 0
+        return (), total or 0
 
     def find(self, marketplace: Marketplace, listing_id: int) -> Listing | None:
-        row = self.session.get(
-            ListingProjection, (marketplace.chain_id, marketplace.address, str(listing_id))
+        result = (
+            self.session.execute(
+                select(ListingProjection, _active_at(int(time()))).where(
+                    ListingProjection.chain_id == marketplace.chain_id,
+                    ListingProjection.marketplace_address == marketplace.address,
+                    ListingProjection.listing_id == str(listing_id),
+                )
+            )
+            .tuples()
+            .one_or_none()
         )
-        return row.to_domain() if row is not None else None
+        if result is None:
+            return None
+        row, active = result
+        return row.to_domain(active=bool(active))
