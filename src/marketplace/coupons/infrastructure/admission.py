@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from marketplace.coupons.application.dto import RedeemCouponPayload, RedeemCouponResult
 from marketplace.coupons.application.exceptions import RedeemErrorCode, RedeemFailure
 from marketplace.infrastructure.idempotency import fingerprint
+from marketplace.infrastructure.operation_history import record_operation_created
 from marketplace.infrastructure.operation_models import IdempotencyKey, Operation, Outbox
 from marketplace.infrastructure.sql_idempotency import claim_key
 
@@ -103,6 +104,7 @@ class SqlRedeemAdmissionStore:
                 created_at=now,
             )
         )
+        record_operation_created(connection, operation_id, now)
         connection.execute(
             insert(Outbox).values(
                 id="ob_" + uuid4().hex,

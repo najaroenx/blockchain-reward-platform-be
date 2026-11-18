@@ -16,6 +16,7 @@ from marketplace.coupons.application.use_cases import RedeemCoupons
 from marketplace.coupons.infrastructure.admission import REDEEM_ENDPOINT, SqlRedeemAdmissionStore
 from marketplace.coupons.presentation.router import RedeemDependencies
 from marketplace.infrastructure.database import Database
+from marketplace.infrastructure.operation_history import advance_operation
 from marketplace.infrastructure.operation_models import IdempotencyKey, Operation, Outbox
 from marketplace.main import create_app
 from marketplace.settings import ApiSettings
@@ -286,7 +287,9 @@ def test_terminal_operation_replays_original_202_without_new_work(
 ) -> None:
     original = admitted.post()
     with admitted.database.engine.begin() as connection:
-        connection.execute(update(Operation).values(status="FINALIZED"))
+        operation_id = original.json()["operationId"]
+        for status in ("SUBMITTED", "CONFIRMED", "FINALIZED"):
+            advance_operation(connection, operation_id, status)
     response = admitted.post()
     assert response.status_code == 202
     assert response.content == original.content
