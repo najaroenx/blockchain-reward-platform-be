@@ -34,10 +34,12 @@ def refs(value: object) -> set[str]:
     return set()
 
 
-def openapi_document() -> dict[str, Any]:
+def openapi_document(
+    title: str = "THB deposit admission", paths_to_keep: tuple[str, ...] = DEPOSITS_PATHS
+) -> dict[str, Any]:
     settings = ApiSettings(APP_ENV="test", database_url="sqlite:///:memory:")
     source = create_app(settings).openapi()
-    paths = {path: source["paths"][path] for path in DEPOSITS_PATHS}
+    paths = {path: source["paths"][path] for path in paths_to_keep}
     schemas = {}
     pending = refs(paths)
     while pending:
@@ -48,7 +50,7 @@ def openapi_document() -> dict[str, Any]:
             pending.update(refs(schema))
     return {
         "openapi": source["openapi"],
-        "info": {"title": "THB deposit admission", "version": "0.1.0"},
+        "info": {"title": title, "version": "0.1.0"},
         "paths": paths,
         "components": {
             "schemas": schemas,
