@@ -35,9 +35,12 @@ def refs(value: object) -> set[str]:
 
 
 def openapi_document(
-    title: str = "THB deposit admission", paths_to_keep: tuple[str, ...] = DEPOSITS_PATHS
+    title: str = "THB deposit admission",
+    paths_to_keep: tuple[str, ...] = DEPOSITS_PATHS,
+    *,
+    settings: ApiSettings | None = None,
 ) -> dict[str, Any]:
-    settings = ApiSettings(APP_ENV="test", database_url="sqlite:///:memory:")
+    settings = settings or ApiSettings(APP_ENV="test", database_url="sqlite:///:memory:")
     source = create_app(settings).openapi()
     paths = {path: source["paths"][path] for path in paths_to_keep}
     schemas = {}
