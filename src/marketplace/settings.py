@@ -56,6 +56,7 @@ class ApiSettings(SharedSettings):
     mock_auth_enabled: bool = False
     mock_deposit_psp_enabled: bool = False
     mock_merchant_wallet_enabled: bool = False
+    point_type_admission_enabled: bool = False
     merchant_signup_per_minute: int = Field(default=30, ge=1, le=1000)
     mock_auth_token: SecretStr = Field(default=SecretStr("mock-redeem-token"), min_length=1)
     mock_auth_user_id: str = Field(default="mock-user", min_length=1)

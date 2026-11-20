@@ -38,6 +38,7 @@ from marketplace.logging_config import configure_logging
 from marketplace.merchants.router import create_router as create_merchants_router
 from marketplace.merchants.wallets import MockWalletProvider, WalletProvider
 from marketplace.operations.router import create_router as create_operations_router
+from marketplace.point_types.router import create_router as create_point_types_router
 from marketplace.settings import ApiSettings, load_settings
 
 
@@ -185,6 +186,8 @@ def create_app(
     )
     app.include_router(create_operations_router(operation_auth))
     app.include_router(create_merchants_router(merchant_wallets, config.merchant_signup_per_minute))
+    if config.point_type_admission_enabled:
+        app.include_router(create_point_types_router(read_identity))
     return app
 
 

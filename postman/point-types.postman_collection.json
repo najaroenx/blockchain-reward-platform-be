@@ -1,0 +1,329 @@
+{
+  "info": {
+    "name": "Point type admission",
+    "description": "Enable POINT_TYPE_ADMISSION_ENABLED and set pointTypeToken to a bearer token for an enabled administrator of an active merchant with a ready wallet.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000"
+    },
+    {
+      "key": "pointTypeToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Queue point type",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{admissionKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/point-types",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"{{pointTypeName}}\", \"symbol\": \"{{pointTypeSymbol}}\", \"decimals\": 18}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const ref = pm.variables.replaceIn('{{$guid}}');",
+              "const suffix = ref.replace(/-/g, '').slice(0, 9).toUpperCase();",
+              "pm.collectionVariables.set('pointTypeName', 'Preview ' + ref);",
+              "pm.collectionVariables.set('pointTypeSymbol', 'P' + suffix);",
+              "pm.collectionVariables.set('otherPointTypeSymbol', 'Q' + suffix);",
+              "pm.collectionVariables.set('admissionKey', 'point-' + ref);",
+              "pm.collectionVariables.set('conflictKey', 'other-' + ref);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202', () => pm.response.to.have.status(202));",
+              "const admitted = pm.response.json();",
+              "pm.test('REQUESTED with a new point type and operation ID', () => {",
+              "  pm.expect(admitted.status).to.eql('REQUESTED');",
+              "  pm.expect(admitted.decimals).to.eql(18);",
+              "  pm.expect(admitted.pointTypeId).to.match(/^pt_[a-z0-9]+$/);",
+              "  pm.expect(admitted.operationId).to.match(/^op_[a-z0-9]+$/);",
+              "});",
+              "const location = pm.response.headers.get('Location');",
+              "pm.test('Operation URL is returned in Location', () => pm.expect(location).to.eql('/v1/operations/' + admitted.operationId));",
+              "pm.collectionVariables.set('pointTypeAdmission', pm.response.text());",
+              "pm.collectionVariables.set('pointTypeOperationUrl', location);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay the acknowledgement",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{admissionKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/point-types",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"{{pointTypeName}}\", \"symbol\": \"{{pointTypeSymbol}}\", \"decimals\": 18}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202', () => pm.response.to.have.status(202));",
+              "pm.test('Replay returns the same body and Location', () => {",
+              "  pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get('pointTypeAdmission'));",
+              "  pm.expect(pm.response.headers.get('Location')).to.eql(pm.collectionVariables.get('pointTypeOperationUrl'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject key reuse with changed input",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{admissionKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/point-types",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"{{pointTypeName}}\", \"symbol\": \"{{otherPointTypeSymbol}}\", \"decimals\": 18}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('IDEMPOTENCY_KEY_REUSED', () => pm.expect(pm.response.json().error.code).to.eql('IDEMPOTENCY_KEY_REUSED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject already reserved name",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{conflictKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/point-types",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \" {{pointTypeName}} \", \"symbol\": \"{{otherPointTypeSymbol}}\", \"decimals\": 18}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('NAME_TAKEN', () => pm.expect(pm.response.json().error.code).to.eql('NAME_TAKEN'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject already reserved symbol",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{conflictKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/point-types",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Other {{pointTypeName}}\", \"symbol\": \"{{pointTypeSymbol}}\", \"decimals\": 18}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('SYMBOL_TAKEN', () => pm.expect(pm.response.json().error.code).to.eql('SYMBOL_TAKEN'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject an unsupported decimal count",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{conflictKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/point-types",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"{{pointTypeName}}\", \"symbol\": \"{{pointTypeSymbol}}\", \"decimals\": 0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('VALIDATION_FAILED', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_FAILED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Poll the queued operation",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{pointTypeToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}{{pointTypeOperationUrl}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const operation = pm.response.json();",
+              "pm.test('POINT_TYPE_CREATE is pending', () => {",
+              "  pm.expect(operation.kind).to.eql('POINT_TYPE_CREATE');",
+              "  pm.expect(operation.status).to.eql('PENDING');",
+              "  pm.expect(operation.events[0].toStatus).to.eql('PENDING');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
