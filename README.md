@@ -14,6 +14,7 @@ SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ 
 ผ่าน `COUPON_TYPES_ENABLED` และยังไม่ส่งธุรกรรม `createCouponType` ขึ้น chain
 มี login/session/lockout และ ES256 JWT signer สำหรับ merchant-admin แล้ว (#177/#182) ใช้
 `JWT_ISSUER`/`JWT_AUDIENCE` ร่วมกับตัวตรวจ JWT ของ redeem ข้างต้น
+มี refresh-token rotation และการจับ token เก่าใช้ซ้ำแล้ว โดยเพิกถอนทั้ง session family (#178)
 
 ## ติดตั้ง
 
@@ -207,6 +208,10 @@ Production บังคับให้ตั้งค่า signer ครบแ�
 .venv/bin/python scripts/verify_login_api.py
 # ใช้ --export เมื่อตั้งใจ regenerate API artifacts
 ```
+
+`POST /v1/auth/refresh` อ่าน refresh cookie แล้วออก JWT และ cookie ใบใหม่
+หากใช้ token เก่าที่หมุนแล้วซ้ำ จะตอบ `401 SESSION_COMPROMISED` และเพิกถอนทั้ง family
+อ่าน [refresh behavior และ acceptance](docs/auth-refresh.md) สำหรับ error codes และ migration T14
 
 ## PostgreSQL สำหรับ local development
 

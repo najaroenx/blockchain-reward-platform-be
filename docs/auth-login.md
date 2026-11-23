@@ -93,12 +93,12 @@ requires a separate deployment decision.
 The migration creates `merchant`, `merchant_admin`, `customer`, `auth_session`, `login_attempt`,
 `login_lockout`, and `auth_event`. The reduced FEAT-03 customer table supports session-owner foreign
 keys; OTP, customer registration, merchant onboarding, and their schema reconciliation remain in
-their own tasks. Refresh and logout endpoints belong to #178/#179 and are not added here.
+their own tasks. [Refresh rotation](auth-refresh.md) is implemented by #178; logout remains in #179.
 
 | Issue acceptance | Local proof |
 | --- | --- |
 | T1 | Duplicate refresh hashes violate the unique index. |
-| T2 | A second child session for one parent violates the unique parent index. No refresh endpoint is claimed. |
+| T2 | A second child session for one parent violates the unique parent index. Refresh HTTP races also create only one child. |
 | T3 | Family-revocation storage updates leave no unrevoked member; repeated revocation changes zero rows. |
 | T4 | Revocation timestamp and reason must be present together. |
 | T5 | Exactly one merchant-admin or customer owns a session; foreign keys and subject-kind checks apply. |
@@ -108,7 +108,7 @@ These checks pass on temporary SQLite databases and on PostgreSQL 17.11 from the
 `postgres:17-alpine` Compose container. The PostgreSQL auth/migration run passed 31 tests,
 including all six storage invariants, concurrent login/lockout, rollback, schema drift,
 upgrade/downgrade, and re-upgrade. This verifies T2/T3 at the database/repository layer;
-refresh/logout API flows remain with #178/#179. No shared staging deployment is claimed.
+Refresh API flow is verified by #178; logout remains in #179. No shared staging deployment is claimed.
 
 ## Repeatable checks
 
