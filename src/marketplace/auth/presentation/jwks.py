@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from marketplace.auth.application.ports import SigningKeyPublisher
-from marketplace.auth.presentation.router import LoginRoute
+from marketplace.auth.presentation.router import AuthRoute
 from marketplace.auth.presentation.schemas import ErrorResponse
 
 
@@ -27,7 +27,7 @@ class JwksResponse(BaseModel):
 
 
 def create_router(provider: Callable[[Request], SigningKeyPublisher]) -> APIRouter:
-    router = APIRouter(tags=["authentication"], route_class=LoginRoute)
+    router = APIRouter(tags=["authentication"], route_class=AuthRoute)
 
     @router.get(
         "/.well-known/jwks.json",

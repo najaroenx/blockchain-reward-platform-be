@@ -10,5 +10,6 @@
 - [x] Add merchant login/session/lockout, TokenSigner port, migration, and OpenAPI/Postman checks (#177 selected scope).
 - [x] Verify auth and migrations against local PostgreSQL 17.11 (31 tests and Newman 25 requests / 103 assertions).
 - [x] Integrate ES256 JWT signing from a mounted PEM, issuer/audience configuration, and public JWKS (#182).
-- [ ] Complete signing-key rotation (#184), refresh/logout (#178/#179), customer auth, and wallet authorization.
+- [x] Add refresh rotation, replay family revocation, and disabled-owner session guards (#178).
+- [ ] Complete signing-key rotation (#184), logout/session management (#179), customer login, and wallet authorization.
 - [ ] Resolve the deployment, signing, queue, and indexer decisions listed in architecture.md.

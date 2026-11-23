@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from marketplace.auth.application.dto import AccessClaims
-from marketplace.auth.application.exceptions import LoginFailure
+from marketplace.auth.application.exceptions import AuthFailure
 from marketplace.auth.infrastructure.signing import Es256TokenSigner, SigningConfigurationError
 
 ISSUER = "https://auth.example.test"
@@ -144,7 +144,7 @@ def test_signing_library_failure_is_sanitized(
         raise jwt.InvalidKeyError("SECRET provider details")
 
     monkeypatch.setattr(jwt, "encode", fail)
-    with pytest.raises(LoginFailure) as result:
+    with pytest.raises(AuthFailure) as result:
         signer(jwt_key_file).sign(claims())
     assert result.value.refusal.code == "AUTH_UNAVAILABLE"
     assert "SECRET" not in str(result.value)

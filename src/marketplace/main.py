@@ -11,12 +11,15 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from marketplace.auth.application.ports import SigningKeyPublisher
+from marketplace.auth.application.refresh import Refresh
 from marketplace.auth.application.use_cases import Login
 from marketplace.auth.domain.entities import LoginPolicy
 from marketplace.auth.infrastructure.passwords import Argon2PasswordVerifier
+from marketplace.auth.infrastructure.refresh_repository import SqlRefreshStore
 from marketplace.auth.infrastructure.repository import SqlLoginStore
 from marketplace.auth.infrastructure.signing import Es256TokenSigner, UnavailableTokenSigner
 from marketplace.auth.presentation.jwks import create_router as create_jwks_router
+from marketplace.auth.presentation.refresh import create_router as create_refresh_router
 from marketplace.auth.presentation.router import AuthDependencies
 from marketplace.auth.presentation.router import create_router as create_auth_router
 from marketplace.infrastructure.database import Database
@@ -70,6 +73,12 @@ def create_app(
         app.state.login = Login(
             SqlLoginStore(app.state.database.sessions),
             dependencies.hasher,
+            dependencies.signer,
+            policy=dependencies.policy,
+            clock=dependencies.clock,
+        )
+        app.state.refresh = Refresh(
+            SqlRefreshStore(app.state.database.sessions),
             dependencies.signer,
             policy=dependencies.policy,
             clock=dependencies.clock,
@@ -144,6 +153,12 @@ def create_app(
         return publisher
 
     app.include_router(create_jwks_router(provide_signing_keys))
+
+    def provide_refresh(request: Request) -> Refresh:
+        service: Refresh = request.app.state.refresh
+        return service
+
+    app.include_router(create_refresh_router(provide_refresh))
     return app
 
 

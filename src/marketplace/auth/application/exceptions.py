@@ -1,18 +1,26 @@
 from dataclasses import dataclass
 from typing import Literal
 
-LoginErrorCode = Literal[
-    "INVALID_CREDENTIALS", "ACCOUNT_LOCKED", "RATE_LIMITED", "AUTH_UNAVAILABLE", "VALIDATION_FAILED"
+AuthErrorCode = Literal[
+    "INVALID_CREDENTIALS",
+    "ACCOUNT_LOCKED",
+    "RATE_LIMITED",
+    "AUTH_UNAVAILABLE",
+    "VALIDATION_FAILED",
+    "REFRESH_TOKEN_INVALID",
+    "REFRESH_TOKEN_EXPIRED",
+    "REFRESH_TOKEN_REVOKED",
+    "SESSION_COMPROMISED",
 ]
 
 
 @dataclass(frozen=True)
-class LoginRefusal:
-    code: LoginErrorCode
+class AuthRefusal:
+    code: AuthErrorCode
     retry_after: int | None = None
 
 
-class LoginFailure(Exception):
-    def __init__(self, refusal: LoginRefusal) -> None:
+class AuthFailure(Exception):
+    def __init__(self, refusal: AuthRefusal) -> None:
         super().__init__(refusal.code)
         self.refusal = refusal

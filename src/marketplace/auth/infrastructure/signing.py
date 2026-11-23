@@ -9,8 +9,8 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-from marketplace.auth.application.dto import AccessClaims, SigningPublicKey
-from marketplace.auth.application.exceptions import LoginFailure, LoginRefusal
+from marketplace.auth.application.dto import AccessClaims, CustomerAccessClaims, SigningPublicKey
+from marketplace.auth.application.exceptions import AuthFailure, AuthRefusal
 
 
 class SigningConfigurationError(ValueError):
@@ -48,7 +48,7 @@ class Es256TokenSigner:
             kid=base64url(sha256(canonical).digest()), x=public["x"], y=public["y"]
         )
 
-    def sign(self, claims: AccessClaims) -> str:
+    def sign(self, claims: AccessClaims | CustomerAccessClaims) -> str:
         try:
             return jwt.encode(
                 {**asdict(claims), "iss": self._issuer, "aud": self._audience},
@@ -57,15 +57,15 @@ class Es256TokenSigner:
                 headers={"kid": self._public.kid, "typ": "JWT"},
             )
         except (jwt.PyJWTError, ValueError, TypeError):
-            raise LoginFailure(LoginRefusal("AUTH_UNAVAILABLE")) from None
+            raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE")) from None
 
     def public_keys(self) -> tuple[SigningPublicKey, ...]:
         return (self._public,)
 
 
 class UnavailableTokenSigner:
-    def sign(self, claims: AccessClaims) -> str:
-        raise LoginFailure(LoginRefusal("AUTH_UNAVAILABLE"))
+    def sign(self, claims: AccessClaims | CustomerAccessClaims) -> str:
+        raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE"))
 
     def public_keys(self) -> tuple[SigningPublicKey, ...]:
-        raise LoginFailure(LoginRefusal("AUTH_UNAVAILABLE"))
+        raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE"))

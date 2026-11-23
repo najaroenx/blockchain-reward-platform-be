@@ -5,7 +5,7 @@ from secrets import token_urlsafe
 from uuid import uuid4
 
 from marketplace.auth.application.dto import AccessClaims, LoginCommand, LoginResult
-from marketplace.auth.application.exceptions import LoginFailure, LoginRefusal
+from marketplace.auth.application.exceptions import AuthFailure, AuthRefusal
 from marketplace.auth.application.ports import LoginStore, PasswordVerifier, TokenSigner
 from marketplace.auth.domain.entities import (
     DEFAULT_LOGIN_POLICY,
@@ -33,8 +33,8 @@ class Login:
 
     def execute(self, command: LoginCommand) -> LoginResult:
         attempt = self.store.reserve(command, self.clock(), self.policy)
-        if isinstance(attempt, LoginRefusal):
-            raise LoginFailure(attempt)
+        if isinstance(attempt, AuthRefusal):
+            raise AuthFailure(attempt)
         credentials = self.store.credentials(command.normalized_email)
         verified = self.hasher.verify(
             credentials.password_hash if credentials else None, command.password
@@ -65,14 +65,14 @@ class Login:
                     )
                 )
                 if not access_token:
-                    raise LoginFailure(LoginRefusal("AUTH_UNAVAILABLE"))
+                    raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE"))
             except Exception:
                 self.store.abort(attempt)
-                raise LoginFailure(LoginRefusal("AUTH_UNAVAILABLE")) from None
+                raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE")) from None
             grant = LoginGrant(candidate, planned)
         subject = self.store.complete(attempt, grant, self.clock(), self.policy)
-        if isinstance(subject, LoginRefusal):
-            raise LoginFailure(subject)
+        if isinstance(subject, AuthRefusal):
+            raise AuthFailure(subject)
         return LoginResult(
             access_token=access_token,
             refresh_token=refresh_token,

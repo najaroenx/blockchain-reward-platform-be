@@ -24,6 +24,30 @@ class AccessClaims:
 
 
 @dataclass(frozen=True)
+class CustomerAccessClaims:
+    sub: str
+    sid: str
+    jti: str
+    iat: int
+    exp: int
+    kind: Literal["CUSTOMER"] = "CUSTOMER"
+
+
+@dataclass(frozen=True)
+class RefreshCommand:
+    token_hash: bytes = field(repr=False)
+    ip_hash: bytes
+
+
+@dataclass(frozen=True)
+class RefreshResult:
+    access_token: str = field(repr=False)
+    refresh_token: str = field(repr=False)
+    expires_in: int
+    refresh_max_age: int
+
+
+@dataclass(frozen=True)
 class LoginResult:
     access_token: str = field(repr=False)
     refresh_token: str = field(repr=False)
