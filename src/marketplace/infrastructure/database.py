@@ -1,4 +1,5 @@
 from sqlite3 import Connection
+from sqlite3 import Connection as SqliteConnection
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
@@ -43,3 +44,7 @@ class Database:
 
     def close(self) -> None:
         self.engine.dispose()
+
+
+def enable_foreign_keys(connection: SqliteConnection, record: ConnectionPoolEntry) -> None:
+    connection.execute("PRAGMA foreign_keys=ON")

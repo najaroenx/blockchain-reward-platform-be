@@ -12,6 +12,7 @@ htmlcov/
 coverage.xml
 dist/
 build/
+artifacts/
 *.egg-info/
 *.db
 *.db-*
