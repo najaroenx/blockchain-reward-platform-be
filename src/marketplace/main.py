@@ -9,6 +9,14 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from marketplace.coupons.application.exceptions import (
+    CouponTypeNotFound,
+    DuplicateCouponTypeName,
+    IdempotencyKeyConflict,
+)
+from marketplace.coupons.application.use_cases import CouponTypeRegistry
+from marketplace.coupons.infrastructure.repository import SqlCouponTypeRepository
+from marketplace.coupons.presentation.router import create_router as create_coupons_router
 from marketplace.infrastructure.database import Database
 from marketplace.listings.application.exceptions import (
     ListingNotFound,
@@ -16,7 +24,7 @@ from marketplace.listings.application.exceptions import (
 )
 from marketplace.listings.application.use_cases import Catalog
 from marketplace.listings.infrastructure.repository import SqlListingReader
-from marketplace.listings.presentation.router import create_router
+from marketplace.listings.presentation.router import create_router as create_listings_router
 from marketplace.logging_config import configure_logging
 from marketplace.settings import ApiSettings, load_settings
 
@@ -81,6 +89,41 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             status_code=404,
         )
 
+    @app.exception_handler(CouponTypeNotFound)
+    async def coupon_type_not_found(request: Request, error: CouponTypeNotFound) -> JSONResponse:
+        return JSONResponse(
+            {"error": {"code": "coupon_type_not_found", "message": "Coupon type not found."}},
+            status_code=404,
+        )
+
+    @app.exception_handler(DuplicateCouponTypeName)
+    async def duplicate_coupon_type_name(
+        request: Request, error: DuplicateCouponTypeName
+    ) -> JSONResponse:
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "duplicate_coupon_type_name",
+                    "message": "A coupon type with this name already exists.",
+                }
+            },
+            status_code=409,
+        )
+
+    @app.exception_handler(IdempotencyKeyConflict)
+    async def idempotency_key_conflict(
+        request: Request, error: IdempotencyKeyConflict
+    ) -> JSONResponse:
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "idempotency_key_conflict",
+                    "message": "This idempotency key was already used with a different request.",
+                }
+            },
+            status_code=409,
+        )
+
     def provide_catalog(request: Request) -> Iterator[Catalog]:
         with request.app.state.database.sessions() as session:
             try:
@@ -88,7 +131,16 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             except SQLAlchemyError:
                 raise ProjectionUnavailable from None
 
-    app.include_router(create_router(provide_catalog))
+    app.include_router(create_listings_router(provide_catalog))
+
+    if config.coupon_types_enabled:
+
+        def provide_coupon_registry(request: Request) -> Iterator[CouponTypeRegistry]:
+            with request.app.state.database.sessions() as session:
+                yield CouponTypeRegistry(SqlCouponTypeRepository(session))
+
+        app.include_router(create_coupons_router(provide_coupon_registry))
+
     return app
 
 

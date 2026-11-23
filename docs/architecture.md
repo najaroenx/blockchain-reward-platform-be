@@ -37,10 +37,15 @@ src/marketplace/
     presentation/router.py         HTTP endpoints receiving an injected provider
     presentation/schemas.py        HTTP validation and response models
   coupons/
-    domain/                        package skeleton for coupon entities and rules
-    application/                   package skeleton for coupon use cases and ports
-    infrastructure/                package skeleton for coupon adapters
-    presentation/                  package skeleton for coupon HTTP routes and schemas
+    domain/entities.py             CouponType value (no chain_type_id until a later phase)
+    application/use_cases.py       idempotent create, get, list — no chain reads or writes
+    application/ports.py           repository interface consumed by use cases
+    application/dto.py             create input and query result values
+    application/exceptions.py      application failures
+    infrastructure/models.py       coupon_types and idempotency-key projections
+    infrastructure/repository.py   idempotent create/replay adapter
+    presentation/router.py         HTTP endpoints, mounted only if COUPON_TYPES_ENABLED
+    presentation/schemas.py        HTTP validation and response models
   infrastructure/
     database.py                    shared engine and request-scoped sessions
     blockchain/abi/                pinned reference, not a deployment binding
@@ -55,9 +60,14 @@ scripts/sync_contract_reference.py reproducible ABI extraction from the pinned G
 
 The installable package is `marketplace` under `src/`. Organize by feature first, then by domain,
 application, infrastructure, and presentation within each feature. Listings owns the existing
-catalog read use cases, projection models, repository, and HTTP endpoints. Coupons is an explicitly
-requested feature skeleton: each layer is a Python package, with no new use case, ORM model, or
-HTTP route. Coupon creation and minting still require the deployment and signing decisions.
+catalog read use cases, projection models, repository, and HTTP endpoints. Coupons owns a Phase 1
+slice of BE-0602 (issue #222): `POST`/`GET /api/v1/coupon-types` persist and read a coupon type
+locally, with `chain_type_id` always `NULL`. The route only exists when `COUPON_TYPES_ENABLED=true`
+(default `false`). Coupon *minting*, and ever submitting `createCouponType` on chain, still require
+the deployment, signing, authentication, and queue decisions below — Phase 1 deliberately does not
+touch any of them, so `chain_type_id` has no path to becoming non-null yet. `name` uniqueness is
+global in Phase 1 because no merchant/tenant model exists; revisit once "Authentication" and "API
+exposure" below are resolved.
 
 Shared connection management and ABI reference assets stay in the package-level infrastructure.
 Feature infrastructure owns its ORM models and queries. Shared infrastructure does not import
@@ -87,7 +97,10 @@ The implemented catalog reads projections only. Each query is scoped by chain ID
 address. Large EVM integers are stored as exact decimal strings and returned as strings. A missing
 checkpoint yields HTTP 503, rather than pretending an unindexed marketplace has no listings.
 The returned `indexed_block` describes projection progress; it does not claim the chain is current.
-No public endpoint writes listings, submits transactions, mints coupons, or releases escrow.
+No public endpoint submits a transaction, mints coupons, or releases escrow. The coupon-types
+endpoint (behind `COUPON_TYPES_ENABLED`, default off) is the one local write: it persists a row
+that a later, explicitly-scoped phase would still need a worker, signer, and queue design to ever
+turn into an on-chain `createCouponType` call.
 
 SQLite is a local development/test adapter. PostgreSQL with psycopg is required in production.
 Database sessions belong to one request and close afterward. Alembic owns schema changes; the

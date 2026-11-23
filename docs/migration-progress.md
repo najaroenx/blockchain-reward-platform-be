@@ -9,3 +9,5 @@
 - [x] Complete local checks, migration exercise, and real HTTP smoke test.
 - [ ] Confirm PostgreSQL integration against a running PostgreSQL server.
 - [ ] Resolve the deployment, authentication, signing, queue, and indexer decisions listed in architecture.md.
+- [x] BE-0602 Phase 1: persist and read coupon types locally (`COUPON_TYPES_ENABLED`, default off).
+      No chain submission; see architecture.md's coupons section and contract-validation.md.

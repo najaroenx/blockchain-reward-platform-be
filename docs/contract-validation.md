@@ -56,6 +56,12 @@ Source locations at the pinned revision:
    requires a contract address and payment uses ERC-20, so native ETH is not supported here.
 8. `totalSupply` is cumulative issued supply and is not reduced by redemption; `totalRedeemed`
    increases. Do not map those counters to an old off-chain supply formula without reconciling it.
+9. That "not reduced by redemption" statement holds for self-service `Coupon.redeem`
+   (`BaseCoupon.sol:99-126`) but not for `Coupon.redeemFrom`, which does decrement `totalSupply`
+   (`BaseCoupon.sol:128-165`, specifically `:154`). The marketplace callback wiring only exercises
+   `redeem` (`Marketplace.sol` never calls `redeemFrom`), so this is currently latent, but a backend
+   or indexer that also allows owner/operator-initiated `redeemFrom` must not assume `getTotalSupply`
+   behaves the same way across both redemption paths.
 
 The old Prisma reference is archived, not executed as the new database schema. Its source-defined
 limits, fees, per-code reservations, ownership rules, and operations must be reviewed per feature.

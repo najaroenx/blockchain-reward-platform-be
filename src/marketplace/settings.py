@@ -44,6 +44,10 @@ class SharedSettings(BaseModel):
 class ApiSettings(SharedSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=3000, ge=1, le=65535)
+    # Default off: the coupon-types write endpoint persists locally only (no deployment,
+    # signing, or auth decision exists yet to submit createCouponType on-chain). See
+    # docs/architecture.md "Decisions still required".
+    coupon_types_enabled: bool = False
 
 
 class ChainSettings(SharedSettings):

@@ -83,6 +83,20 @@ def test_production_requires_postgres(tmp_path: Path) -> None:
         )
 
 
+def test_coupon_types_disabled_by_default(tmp_path: Path) -> None:
+    settings = load_settings("api", root=tmp_path, environ={"DATABASE_URL": "sqlite:///db"})
+    assert settings.coupon_types_enabled is False
+
+
+def test_coupon_types_can_be_enabled(tmp_path: Path) -> None:
+    settings = load_settings(
+        "api",
+        root=tmp_path,
+        environ={"DATABASE_URL": "sqlite:///db", "COUPON_TYPES_ENABLED": "true"},
+    )
+    assert settings.coupon_types_enabled is True
+
+
 def test_init_env_preserves_local_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "pyproject.toml").touch()
     (tmp_path / ".env").write_text("DATABASE_URL=keep-this\n")
