@@ -1,0 +1,425 @@
+{
+  "components": {
+    "schemas": {
+      "DetailResponse": {
+        "properties": {
+          "indexed_block": {
+            "title": "Indexed Block",
+            "type": "integer"
+          },
+          "listing": {
+            "$ref": "#/components/schemas/ListingResponse"
+          }
+        },
+        "required": [
+          "listing",
+          "indexed_block"
+        ],
+        "title": "DetailResponse",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "enum": [
+              "INVALID_CREDENTIALS",
+              "ACCOUNT_LOCKED",
+              "RATE_LIMITED",
+              "AUTH_UNAVAILABLE",
+              "VALIDATION_FAILED"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "requestId": {
+            "title": "Requestid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "role": {
+            "const": "api",
+            "default": "api",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "ListingResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "listed_at": {
+            "title": "Listed At",
+            "type": "integer"
+          },
+          "listing_id": {
+            "title": "Listing Id",
+            "type": "string"
+          },
+          "payment_token": {
+            "title": "Payment Token",
+            "type": "string"
+          },
+          "price_per_unit": {
+            "title": "Price Per Unit",
+            "type": "string"
+          },
+          "seller": {
+            "title": "Seller",
+            "type": "string"
+          },
+          "type_id": {
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listing_id",
+          "seller",
+          "type_id",
+          "amount",
+          "price_per_unit",
+          "payment_token",
+          "active",
+          "listed_at"
+        ],
+        "title": "ListingResponse",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "format": "password",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "properties": {
+          "accessToken": {
+            "minLength": 1,
+            "title": "Accesstoken",
+            "type": "string"
+          },
+          "expiresIn": {
+            "const": 900,
+            "default": 900,
+            "title": "Expiresin",
+            "type": "integer"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectResponse"
+          },
+          "tokenType": {
+            "const": "Bearer",
+            "default": "Bearer",
+            "title": "Tokentype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessToken",
+          "subject"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "PageResponse": {
+        "properties": {
+          "indexed_block": {
+            "description": "Projection checkpoint, not a live chain balance",
+            "title": "Indexed Block",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ListingResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "indexed_block"
+        ],
+        "title": "PageResponse",
+        "type": "object"
+      },
+      "SubjectResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "MERCHANT_ADMIN",
+            "default": "MERCHANT_ADMIN",
+            "title": "Kind",
+            "type": "string"
+          },
+          "merchantId": {
+            "title": "Merchantid",
+            "type": "string"
+          },
+          "merchantStatus": {
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "SUSPENDED",
+              "CLOSED"
+            ],
+            "title": "Merchantstatus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "merchantId",
+          "merchantStatus"
+        ],
+        "title": "SubjectResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Marketplace projections and merchant login. Transaction submission is not enabled.",
+    "title": "Merchant login API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/auth/login": {
+      "post": {
+        "description": "Verify merchant-admin credentials. Refresh tokens are sent only in a secure HttpOnly cookie. Signing requires the #182 TokenSigner adapter.",
+        "operationId": "merchantLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Authenticated. Refresh token is sent only in a cookie.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "refreshToken; HttpOnly; Secure; SameSite=Strict; Path=/v1/auth",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Locked"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Failures use the login error envelope."
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "authentication"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "Local development",
+      "url": "http://127.0.0.1:3000"
+    }
+  ]
+}

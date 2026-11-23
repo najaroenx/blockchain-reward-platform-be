@@ -7,5 +7,7 @@
 - [x] Preserve role configuration, liveness behavior, and secret redaction.
 - [x] Add SQLAlchemy catalog projections and Alembic migrations.
 - [x] Complete local checks, migration exercise, and real HTTP smoke test.
-- [ ] Confirm PostgreSQL integration against a running PostgreSQL server.
-- [ ] Resolve the deployment, authentication, signing, queue, and indexer decisions listed in architecture.md.
+- [x] Add merchant login/session/lockout, TokenSigner port, migration, and OpenAPI/Postman checks (#177 selected scope).
+- [x] Verify auth and migrations against local PostgreSQL 17.11 (31 tests and Newman 25 requests / 103 assertions).
+- [ ] Integrate the real JWT signer (#182), refresh/logout (#178/#179), customer auth, and wallet authorization.
+- [ ] Resolve the deployment, signing, queue, and indexer decisions listed in architecture.md.

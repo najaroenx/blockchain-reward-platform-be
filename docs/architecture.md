@@ -1,6 +1,7 @@
 # Python backend architecture
 
-Status: Python foundation and read-only catalog implemented. Live chain integration is not enabled.
+Status: Python foundation, read-only catalog, and merchant login/session/lockout implemented.
+JWT signing remains behind the #182 TokenSigner port. Live chain integration is not enabled.
 
 ## Existing behavior and migration scope
 
@@ -41,6 +42,14 @@ src/marketplace/
     application/                   package skeleton for coupon use cases and ports
     infrastructure/                package skeleton for coupon adapters
     presentation/                  package skeleton for coupon HTTP routes and schemas
+  auth/
+    domain/entities.py             login policy and identity/session values
+    application/use_cases.py       credential verification and login coordination
+    application/ports.py           LoginStore, PasswordVerifier, TokenSigner
+    infrastructure/models.py       seven FEAT-03 foundation tables
+    infrastructure/repository.py   rate reservations, lockout, atomic sessions
+    infrastructure/passwords.py    Argon2id and equivalent-cost dummy verification
+    presentation/router.py         login route and secure refresh cookie
   infrastructure/
     database.py                    shared engine and request-scoped sessions
     blockchain/abi/                pinned reference, not a deployment binding
@@ -71,15 +80,35 @@ Within listings, domain objects describe listing values. Query DTOs and availabi
 to application. Use cases depend on domain and repository protocols. Presentation handles HTTP.
 `main.py` wires the concrete repository into the use case and injects its provider into the router.
 
-Import Linter covers both listings and coupons with six dependency rules: domain independence, application independence,
+Import Linter covers listings, coupons, and auth with six dependency rules: domain independence, application independence,
 presentation isolation from persistence, feature infrastructure isolation from HTTP, settings/logging
 independence from features, and shared infrastructure independence from features. Domain and
 application do not depend on FastAPI, Pydantic, or SQLAlchemy.
 
 ## Responsibilities
 
+The auth feature owns merchant login, session storage, and lockout. `main.py` wires a SQL repository
+and password verifier into `Login`. An injected `AuthDependencies` supplies the #182 signer.
+The default signer fails with AUTH_UNAVAILABLE and does not create a session. There is no mock
+signer on the normal API entry point.
+
+Migration `0002_auth_login` adds the FEAT-03 identity/session foundation because the Python base
+did not contain those tables. It does not execute the archived SQL. Customer OTP, merchant
+onboarding, refresh/logout routes, JWT key management, and shared-schema reconciliation retain
+their separate owners. See [merchant login](auth-login.md) for source discrepancies and acceptance evidence.
+
+Rate reservations commit hashed PENDING attempts before password work and signing. Success then
+commits the session, completed attempt, last-login update, and auth event atomically. Signing runs
+outside the transaction; failures create no session. The repository rechecks account credentials
+and identity bindings before commit. Countable-failure flags reset under the identifier lock,
+preserving audit history without relying on timestamps to order a reset.
+
+Auth PostgreSQL writes use READ COMMITTED with transaction advisory locks for IP and identifier
+scopes. Local SQLite writes use BEGIN IMMEDIATE and enforce foreign keys. The server ignores
+forwarded headers by default; proxy trust remains a deployment decision.
+
 Contracts own trading authorization on chain, balances, escrow, coupon burns, and settlement.
-The backend will own user authentication, proving wallet ownership, request idempotency, transaction
+The backend implements merchant login and will own wallet proof, request idempotency, transaction
 tracking, and projections after those policies are selected. Backend login alone does not authorize
 acting as a wallet. Changing the RPC transaction's signer changes `msg.sender` in the contract.
 
@@ -106,7 +135,7 @@ Tests use [Starlette's supported HTTPX2 test client](https://www.starlette.io/te
 | --- | --- |
 | Intended deployment | Confirm chain ID, RPC, deployment block, Coupon/Vault/THB/proxy addresses, implementation address, and implementation revision/runtime code. The vendored ABI commit is only a candidate. |
 | Wallet custody and signing | Decide user-signed transactions versus worker custody/KMS, how users prove wallet ownership, and which operations may use `redeemFrom`. |
-| Authentication | Choose identity provider or OTP delivery, sessions, account roles, merchant membership, revocation, and wallet-to-user authorization. |
+| Authentication | Integrate the #182 signer, choose keys and rotation, and complete customer OTP, account roles, revocation APIs, and wallet-to-user authorization. Merchant login/session/lockout is implemented. |
 | Points | Confirm the deployed ERC-20 addresses and precision. Contract source accepts ERC-20 payments, not a backend-only points balance or native ETH. |
 | Queue and operations | Select queue/storage, retries, idempotency scope, nonce ownership, replacement policy, and receipt/finality tracking before implementing a transaction worker. |
 | Indexing and reorgs | Select start block, finality policy, replay/reorg rollback, checkpoint ownership, and deployment-upgrade handling before enabling a projection writer. |

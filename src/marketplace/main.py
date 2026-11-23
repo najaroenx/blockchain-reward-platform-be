@@ -9,6 +9,13 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from marketplace.auth.application.use_cases import Login
+from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.infrastructure.passwords import Argon2PasswordVerifier
+from marketplace.auth.infrastructure.repository import SqlLoginStore
+from marketplace.auth.infrastructure.signing import UnavailableTokenSigner
+from marketplace.auth.presentation.router import AuthDependencies
+from marketplace.auth.presentation.router import create_router as create_auth_router
 from marketplace.infrastructure.database import Database
 from marketplace.listings.application.exceptions import (
     ListingNotFound,
@@ -26,13 +33,29 @@ class HealthResponse(BaseModel):
     role: Literal["api"] = "api"
 
 
-def create_app(settings: ApiSettings | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None, *, auth: AuthDependencies | None = None
+) -> FastAPI:
     config = settings if settings is not None else load_settings("api")
     logger = configure_logging("api", config.log_level)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.database = Database(config.database_url.get_secret_value())
+        dependencies = auth or AuthDependencies(
+            Argon2PasswordVerifier(),
+            UnavailableTokenSigner(),
+            policy=LoginPolicy(
+                ip_limit=config.login_ip_limit, ip_window=config.login_ip_window_seconds
+            ),
+        )
+        app.state.login = Login(
+            SqlLoginStore(app.state.database.sessions),
+            dependencies.hasher,
+            dependencies.signer,
+            policy=dependencies.policy,
+            clock=dependencies.clock,
+        )
         logger.info("api_started")
         try:
             yield
@@ -44,7 +67,9 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         title="Blockchain Reward Platform",
         version="0.1.0",
         lifespan=lifespan,
-        description="Read-only marketplace projections. Transaction submission is not enabled.",
+        description=(
+            "Marketplace projections and merchant login. Transaction submission is not enabled."
+        ),
     )
 
     @app.get("/healthz", response_model=HealthResponse, tags=["health"])
@@ -89,9 +114,21 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
                 raise ProjectionUnavailable from None
 
     app.include_router(create_router(provide_catalog))
+
+    def provide_login(request: Request) -> Login:
+        service: Login = request.app.state.login
+        return service
+
+    app.include_router(create_auth_router(provide_login))
     return app
 
 
 def main() -> None:
     settings = load_settings("api")
-    uvicorn.run(create_app(settings), host=settings.host, port=settings.port, access_log=False)
+    uvicorn.run(
+        create_app(settings),
+        host=settings.host,
+        port=settings.port,
+        access_log=False,
+        proxy_headers=False,
+    )

@@ -1,0 +1,1190 @@
+{
+  "info": {
+    "description": "Local validation needs migrated tables. Fixture login must run through verify_login_api.py against its isolated seeded SQLite app. The signer fixture returns an opaque test value, not a real JWT. No #182 signing or PostgreSQL deployment is claimed.",
+    "name": "BE-0306 merchant login",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"VALIDATION_FAILED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Missing fields",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"VALIDATION_FAILED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Invalid email",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"invalid\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"VALIDATION_FAILED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Extra field",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"owner@shop.example\", \"password\": \"fixture-only-password\", \"wallet\": \"forbidden\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Unknown email",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"unknown-{{$guid}}@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"VALIDATION_FAILED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Invalid password type",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"owner@shop.example\", \"password\": 123}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        }
+      ],
+      "name": "Local validation"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Login body\", function () { const data = pm.response.json();",
+                  "  pm.expect(Object.keys(data).sort()).to.eql(",
+                  "    [\"accessToken\", \"expiresIn\", \"subject\", \"tokenType\"]);",
+                  "  pm.expect(data.expiresIn).to.eql(900); pm.expect(data.tokenType).to.eql(\"Bearer\");",
+                  "  pm.expect(data.subject.kind).to.eql(\"MERCHANT_ADMIN\");",
+                  "  pm.expect(data.subject.merchantStatus).to.eql(\"PENDING\");",
+                  "});",
+                  "pm.test(\"Secure refresh cookie\", function () {",
+                  "  const cookie = pm.response.headers.get(\"Set-Cookie\");",
+                  "  [\"HttpOnly\", \"Secure\", \"SameSite=strict\", \"Path=/v1/auth\",",
+                  "    \"Max-Age=2592000\"].forEach(function (flag) {",
+                  "      pm.expect(cookie).to.include(flag); });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Login succeeds with signer fixture",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"owner@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Wrong password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"owner@shop.example\", \"password\": \"wrong\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Disabled admin",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"disabled@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Unknown account",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"AUTH_UNAVAILABLE\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Signer failure",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"signer-fail@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Lockout failure 1",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"lock@shop.example\", \"password\": \"wrong\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Lockout failure 2",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"lock@shop.example\", \"password\": \"wrong\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Lockout failure 3",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"lock@shop.example\", \"password\": \"wrong\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Lockout failure 4",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"lock@shop.example\", \"password\": \"wrong\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Lockout failure 5",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"lock@shop.example\", \"password\": \"wrong\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 423\", function () { pm.response.to.have.status(423); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"ACCOUNT_LOCKED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});",
+                  "pm.test(\"Retry-After\", function () { pm.expect(Number(pm.response.headers.get(\"Retry-After\"))).to.be.above(0); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Locked even with correct password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"lock@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 1",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing0@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.1"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 2",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing1@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.2"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 3",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing2@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.3"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 4",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing3@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.4"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 5",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing4@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.5"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 6",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing5@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.6"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 7",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing6@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.7"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Fill IP window 8",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"missing7@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.8"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 429\", function () { pm.response.to.have.status(429); });",
+                  "pm.test(\"No cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+                  "pm.test(\"No password echo\", function () {",
+                  "  pm.expect(pm.response.text()).not.to.include(\"fixture-only-password\"); });",
+                  "pm.test(\"Error envelope\", function () { const data = pm.response.json();",
+                  "  pm.expect(data.error.code).to.eql(\"RATE_LIMITED\");",
+                  "  pm.expect(data.error.requestId).to.match(/^req_/);",
+                  "  pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "});",
+                  "pm.test(\"Retry-After\", function () { pm.expect(Number(pm.response.headers.get(\"Retry-After\"))).to.be.above(0); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Forwarded header cannot bypass peer IP limit",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\"email\": \"another@shop.example\", \"password\": \"fixture-only-password\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "203.0.113.250"
+              }
+            ],
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login"
+          }
+        }
+      ],
+      "name": "Fixture login"
+    }
+  ]
+}
