@@ -1,0 +1,346 @@
+{
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ApiError",
+        "type": "object"
+      },
+      "ApiErrorDetail": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ApiErrorDetail",
+        "type": "object"
+      },
+      "CreateDeposit": {
+        "additionalProperties": false,
+        "properties": {
+          "amountSatang": {
+            "pattern": "^[1-9][0-9]{3,6}$",
+            "title": "Amountsatang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amountSatang"
+        ],
+        "title": "CreateDeposit",
+        "type": "object"
+      },
+      "DepositCreated": {
+        "properties": {
+          "amountBase": {
+            "title": "Amountbase",
+            "type": "string"
+          },
+          "amountSatang": {
+            "title": "Amountsatang",
+            "type": "string"
+          },
+          "depositId": {
+            "title": "Depositid",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "paymentUrl": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Paymenturl",
+            "type": "string"
+          },
+          "status": {
+            "const": "PENDING_PAYMENT",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "depositId",
+          "amountSatang",
+          "amountBase",
+          "status",
+          "paymentUrl",
+          "expiresAt"
+        ],
+        "title": "DepositCreated",
+        "type": "object"
+      },
+      "DepositView": {
+        "properties": {
+          "amountBase": {
+            "title": "Amountbase",
+            "type": "string"
+          },
+          "amountSatang": {
+            "title": "Amountsatang",
+            "type": "string"
+          },
+          "confirmedAt": {
+            "title": "Confirmedat",
+            "type": "null"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "depositId": {
+            "title": "Depositid",
+            "type": "string"
+          },
+          "mint": {
+            "title": "Mint",
+            "type": "null"
+          },
+          "mintedAt": {
+            "title": "Mintedat",
+            "type": "null"
+          },
+          "reversal": {
+            "title": "Reversal",
+            "type": "null"
+          },
+          "status": {
+            "enum": [
+              "PENDING_PAYMENT",
+              "EXPIRED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "depositId",
+          "amountSatang",
+          "amountBase",
+          "status",
+          "createdAt"
+        ],
+        "title": "DepositView",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "THB deposit admission",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/deposits": {
+      "post": {
+        "operationId": "createDeposit",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeposit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositCreated"
+                }
+              }
+            },
+            "description": "Replay of the saved payment instructions."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "4XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Client Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create",
+        "tags": [
+          "deposits"
+        ]
+      }
+    },
+    "/v1/deposits/{depositId}": {
+      "get": {
+        "operationId": "getDeposit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "depositId",
+            "required": true,
+            "schema": {
+              "title": "Depositid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "4XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Client Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get",
+        "tags": [
+          "deposits"
+        ]
+      }
+    }
+  }
+}

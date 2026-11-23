@@ -138,10 +138,10 @@ def test_invalid_address_is_rejected(client: TestClient) -> None:
 
 
 def test_no_transaction_endpoint_is_exposed(client: TestClient) -> None:
-    # /v1/auth/login, /v1/auth/refresh, and /v1/coupons/redeem are the known,
-    # intentionally-exposed writes; each 503s without its adapters configured,
+    # /v1/auth/login, /v1/auth/refresh, /v1/coupons/redeem, and /v1/deposits are the
+    # known, intentionally-exposed writes; each 503s without its adapters configured,
     # matching the default client.
-    allowed_writes = {"/v1/auth/login", "/v1/auth/refresh", "/v1/coupons/redeem"}
+    allowed_writes = {"/v1/auth/login", "/v1/auth/refresh", "/v1/coupons/redeem", "/v1/deposits"}
     for path, route in client.get("/openapi.json").json()["paths"].items():
         if path in allowed_writes:
             continue

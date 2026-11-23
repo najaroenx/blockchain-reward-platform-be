@@ -1,6 +1,147 @@
 {
   "components": {
     "schemas": {
+      "ApiError": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ApiError",
+        "type": "object"
+      },
+      "ApiErrorDetail": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ApiErrorDetail",
+        "type": "object"
+      },
+      "CreateDeposit": {
+        "additionalProperties": false,
+        "properties": {
+          "amountSatang": {
+            "pattern": "^[1-9][0-9]{3,6}$",
+            "title": "Amountsatang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amountSatang"
+        ],
+        "title": "CreateDeposit",
+        "type": "object"
+      },
+      "DepositCreated": {
+        "properties": {
+          "amountBase": {
+            "title": "Amountbase",
+            "type": "string"
+          },
+          "amountSatang": {
+            "title": "Amountsatang",
+            "type": "string"
+          },
+          "depositId": {
+            "title": "Depositid",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "paymentUrl": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Paymenturl",
+            "type": "string"
+          },
+          "status": {
+            "const": "PENDING_PAYMENT",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "depositId",
+          "amountSatang",
+          "amountBase",
+          "status",
+          "paymentUrl",
+          "expiresAt"
+        ],
+        "title": "DepositCreated",
+        "type": "object"
+      },
+      "DepositView": {
+        "properties": {
+          "amountBase": {
+            "title": "Amountbase",
+            "type": "string"
+          },
+          "amountSatang": {
+            "title": "Amountsatang",
+            "type": "string"
+          },
+          "confirmedAt": {
+            "title": "Confirmedat",
+            "type": "null"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "depositId": {
+            "title": "Depositid",
+            "type": "string"
+          },
+          "mint": {
+            "title": "Mint",
+            "type": "null"
+          },
+          "mintedAt": {
+            "title": "Mintedat",
+            "type": "null"
+          },
+          "reversal": {
+            "title": "Reversal",
+            "type": "null"
+          },
+          "status": {
+            "enum": [
+              "PENDING_PAYMENT",
+              "EXPIRED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "depositId",
+          "amountSatang",
+          "amountBase",
+          "status",
+          "createdAt"
+        ],
+        "title": "DepositView",
+        "type": "object"
+      },
       "DetailResponse": {
         "properties": {
           "indexed_block": {

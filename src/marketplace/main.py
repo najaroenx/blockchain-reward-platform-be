@@ -1,5 +1,6 @@
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
+from hmac import compare_digest
 from pathlib import Path
 from typing import Literal
 
@@ -39,7 +40,10 @@ from marketplace.coupons.presentation.router import (
 from marketplace.coupons.presentation.router import (
     create_router as create_redeem_router,
 )
+from marketplace.deposits.payments import MockDepositPayments, PaymentProvider
+from marketplace.deposits.router import create_router as create_deposit_router
 from marketplace.infrastructure.database import Database
+from marketplace.infrastructure.jwt_auth import InvalidAccessToken, JwtMerchantAuthenticator
 from marketplace.listings.application.exceptions import (
     ListingNotFound,
     ProjectionUnavailable,
@@ -61,6 +65,7 @@ def create_app(
     *,
     redeem: RedeemDependencies | None = None,
     auth: AuthDependencies | None = None,
+    deposit_provider: PaymentProvider | None = None,
 ) -> FastAPI:
     config = settings if settings is not None else load_settings("api")
     logger = configure_logging("api", config.log_level)
@@ -83,6 +88,33 @@ def create_app(
                 audience=config.jwt_audience,
             )
         )
+
+    deposit_auth: Callable[[str], str | None] | None = None
+    if config.mock_auth_enabled:
+        mock_token = config.mock_auth_token.get_secret_value().encode()
+
+        def authenticate_mock_merchant(token: str) -> str | None:
+            if compare_digest(token.encode(), mock_token):
+                return config.mock_auth_user_id
+            return None
+
+        deposit_auth = authenticate_mock_merchant
+    elif config.jwt_public_key_file is not None:
+        assert config.jwt_issuer is not None and config.jwt_audience is not None
+        verify_merchant = JwtMerchantAuthenticator(
+            config.jwt_public_key_file, issuer=config.jwt_issuer, audience=config.jwt_audience
+        )
+
+        def authenticate_merchant(token: str) -> str | None:
+            try:
+                return verify_merchant(token).merchant_id
+            except InvalidAccessToken:
+                return None
+
+        deposit_auth = authenticate_merchant
+
+    if deposit_provider is None and config.mock_deposit_psp_enabled:
+        deposit_provider = MockDepositPayments()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -244,6 +276,7 @@ def create_app(
         return service
 
     app.include_router(create_refresh_router(provide_refresh))
+    app.include_router(create_deposit_router(deposit_auth, deposit_provider))
     return app
 
 
