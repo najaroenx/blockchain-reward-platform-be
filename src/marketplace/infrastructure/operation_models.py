@@ -36,6 +36,17 @@ class Operation(Base):
                 "kind = 'MERCHANT_PROVISION' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')"
             ),
         ),
+        Index(
+            "uq_point_type_inflight",
+            "subject_id",
+            unique=True,
+            postgresql_where=text(
+                "kind = 'POINT_TYPE_CREATE' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')"
+            ),
+            sqlite_where=text(
+                "kind = 'POINT_TYPE_CREATE' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')"
+            ),
+        ),
     )
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
