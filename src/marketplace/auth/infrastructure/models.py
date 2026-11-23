@@ -26,10 +26,17 @@ def utc_now() -> datetime:
 
 
 class Merchant(Base):
+    # Canonical mapping for this table: marketplace.merchants (BE-0902, signup/wallet
+    # provisioning) imports this class rather than redeclaring it, since both features
+    # read/write the same merchant/merchant_admin rows.
     __tablename__ = "merchant"
     __table_args__ = (
+        CheckConstraint("length(trim(name)) BETWEEN 1 AND 200", name="ck_merchant_name"),
         CheckConstraint(
             "status IN ('PENDING','ACTIVE','SUSPENDED','CLOSED')", name="ck_merchant_status"
+        ),
+        CheckConstraint(
+            "status <> 'ACTIVE' OR activated_at IS NOT NULL", name="ck_merchant_active"
         ),
     )
 
@@ -41,6 +48,7 @@ class Merchant(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, server_default=func.current_timestamp()
     )
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MerchantAdmin(Base):
@@ -51,6 +59,7 @@ class MerchantAdmin(Base):
         ),
         CheckConstraint("password_hash LIKE '$argon2id$%'", name="ck_admin_password_argon2id"),
         Index("uq_admin_email", "email_normalized", unique=True),
+        Index("ix_admin_merchant", "merchant_id"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)

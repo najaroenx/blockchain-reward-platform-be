@@ -6,6 +6,7 @@ from marketplace.deposits import store  # noqa: F401
 from marketplace.infrastructure import operation_models  # noqa: F401
 from marketplace.infrastructure.database import Base, Database
 from marketplace.listings.infrastructure import models  # noqa: F401
+from marketplace.merchants import models as merchant_models  # noqa: F401
 from marketplace.settings import load_settings
 
 target_metadata = Base.metadata

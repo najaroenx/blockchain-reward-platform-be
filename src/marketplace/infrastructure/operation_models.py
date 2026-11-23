@@ -23,7 +23,20 @@ from marketplace.infrastructure.database import Base
 
 class Operation(Base):
     __tablename__ = "operation"
-    __table_args__ = (Index("ix_operation_actor_recent", "actor_user_id", "created_at", "id"),)
+    __table_args__ = (
+        Index("ix_operation_actor_recent", "actor_user_id", "created_at", "id"),
+        Index(
+            "uq_provision_inflight",
+            "subject_id",
+            unique=True,
+            postgresql_where=text(
+                "kind = 'MERCHANT_PROVISION' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')"
+            ),
+            sqlite_where=text(
+                "kind = 'MERCHANT_PROVISION' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')"
+            ),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     kind: Mapped[str] = mapped_column(String(32))
@@ -32,6 +45,22 @@ class Operation(Base):
     payload: Mapped[dict[str, str]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     event_seq: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    subject_id: Mapped[str | None] = mapped_column(Text)
+
+
+class OperationPlanStep(Base):
+    __tablename__ = "operation_plan_step"
+    __table_args__ = (
+        CheckConstraint("step_index >= 1", name="ck_plan_step_index"),
+        CheckConstraint(
+            "signer_role IN ('MARKETPLACE_OWNER','MERCHANT_WALLET')", name="ck_plan_step_signer"
+        ),
+    )
+
+    operation_id: Mapped[str] = mapped_column(ForeignKey("operation.id"), primary_key=True)
+    step_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64))
+    signer_role: Mapped[str] = mapped_column(String(24))
 
 
 class OperationEventExpected(Base):

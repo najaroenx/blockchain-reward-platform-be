@@ -1,6 +1,55 @@
 {
   "components": {
     "schemas": {
+      "AdminInput": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Displayname",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 12,
+            "title": "Password",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "displayName"
+        ],
+        "title": "AdminInput",
+        "type": "object"
+      },
+      "AdminView": {
+        "properties": {
+          "adminId": {
+            "title": "Adminid",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adminId",
+          "email"
+        ],
+        "title": "AdminView",
+        "type": "object"
+      },
       "ApiError": {
         "properties": {
           "error": {
@@ -44,6 +93,26 @@
           "amountSatang"
         ],
         "title": "CreateDeposit",
+        "type": "object"
+      },
+      "CreateMerchant": {
+        "additionalProperties": false,
+        "properties": {
+          "admin": {
+            "$ref": "#/components/schemas/AdminInput"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "admin"
+        ],
+        "title": "CreateMerchant",
         "type": "object"
       },
       "DepositCreated": {
@@ -355,6 +424,48 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "MerchantCreated": {
+        "properties": {
+          "admin": {
+            "$ref": "#/components/schemas/AdminView"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "merchantId": {
+            "title": "Merchantid",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provisioning": {
+            "$ref": "#/components/schemas/ProvisioningView"
+          },
+          "status": {
+            "const": "PENDING",
+            "title": "Status",
+            "type": "string"
+          },
+          "wallet": {
+            "$ref": "#/components/schemas/WalletView"
+          }
+        },
+        "required": [
+          "merchantId",
+          "name",
+          "status",
+          "createdAt",
+          "admin",
+          "wallet",
+          "provisioning"
+        ],
+        "title": "MerchantCreated",
+        "type": "object"
+      },
       "OperationEventView": {
         "properties": {
           "actor": {
@@ -472,6 +583,7 @@
           },
           "status": {
             "enum": [
+              "PENDING",
               "SUBMITTED",
               "CONFIRMED",
               "FINALIZED",
@@ -482,8 +594,15 @@
             "type": "string"
           },
           "txHash": {
-            "title": "Txhash",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txhash"
           }
         },
         "required": [
@@ -662,6 +781,25 @@
           "indexed_block"
         ],
         "title": "PageResponse",
+        "type": "object"
+      },
+      "ProvisioningView": {
+        "properties": {
+          "operationId": {
+            "title": "Operationid",
+            "type": "string"
+          },
+          "status": {
+            "const": "PENDING",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "status"
+        ],
+        "title": "ProvisioningView",
         "type": "object"
       },
       "PublicJwk": {
@@ -947,6 +1085,26 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WalletView": {
+        "properties": {
+          "address": {
+            "pattern": "^0x[0-9a-f]{40}$",
+            "title": "Address",
+            "type": "string"
+          },
+          "ready": {
+            "const": false,
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "address",
+          "ready"
+        ],
+        "title": "WalletView",
         "type": "object"
       }
     },

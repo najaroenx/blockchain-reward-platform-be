@@ -99,6 +99,8 @@ class ApiSettings(SharedSettings):
     coupon_types_enabled: bool = False
     mock_auth_enabled: bool = False
     mock_deposit_psp_enabled: bool = False
+    mock_merchant_wallet_enabled: bool = False
+    merchant_signup_per_minute: int = Field(default=30, ge=1, le=1000)
     mock_auth_token: SecretStr = Field(default=SecretStr("mock-redeem-token"), min_length=1)
     mock_auth_user_id: str = Field(default="mock-user", min_length=1)
     mock_auth_wallet_address: str = Field(default="0x" + "a" * 40, pattern=r"^0x[0-9a-fA-F]{40}$")
@@ -133,6 +135,8 @@ class ApiSettings(SharedSettings):
     def jwt_verification_configuration(self) -> Self:
         if self.mock_deposit_psp_enabled and self.environment == "production":
             raise ValueError("mock deposit payments are not allowed in production")
+        if self.mock_merchant_wallet_enabled and self.environment == "production":
+            raise ValueError("mock merchant wallets are not allowed in production")
         # jwt_public_key_file is the sole trigger, not "any of the three fields set":
         # jwt_issuer/jwt_audience are shared with jwt_signing above, so a signing-only
         # setup legitimately has them set without a public key file.
