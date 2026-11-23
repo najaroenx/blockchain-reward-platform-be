@@ -118,6 +118,7 @@
           },
           "status": {
             "enum": [
+              "PENDING",
               "SUBMITTED",
               "CONFIRMED",
               "FINALIZED",
@@ -128,8 +129,15 @@
             "type": "string"
           },
           "txHash": {
-            "title": "Txhash",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txhash"
           }
         },
         "required": [

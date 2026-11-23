@@ -35,6 +35,8 @@ from marketplace.listings.application.use_cases import Catalog
 from marketplace.listings.infrastructure.repository import SqlListingReader
 from marketplace.listings.presentation.router import create_router
 from marketplace.logging_config import configure_logging
+from marketplace.merchants.router import create_router as create_merchants_router
+from marketplace.merchants.wallets import MockWalletProvider, WalletProvider
 from marketplace.operations.router import create_router as create_operations_router
 from marketplace.settings import ApiSettings, load_settings
 
@@ -49,6 +51,7 @@ def create_app(
     *,
     redeem: RedeemDependencies | None = None,
     deposit_provider: PaymentProvider | None = None,
+    merchant_wallets: WalletProvider | None = None,
 ) -> FastAPI:
     config = settings if settings is not None else load_settings("api")
     logger = configure_logging("api", config.log_level)
@@ -110,6 +113,9 @@ def create_app(
 
     if deposit_provider is None and config.mock_deposit_psp_enabled:
         deposit_provider = MockDepositPayments()
+
+    if merchant_wallets is None and config.mock_merchant_wallet_enabled:
+        merchant_wallets = MockWalletProvider()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -178,6 +184,7 @@ def create_app(
         create_deposit_router(deposit_auth if read_identity else None, deposit_provider)
     )
     app.include_router(create_operations_router(operation_auth))
+    app.include_router(create_merchants_router(merchant_wallets, config.merchant_signup_per_minute))
     return app
 
 

@@ -16,7 +16,12 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from marketplace.infrastructure.operation_history import OperationStatus
-from marketplace.infrastructure.operation_models import Operation, OperationEvent, OperationStep
+from marketplace.infrastructure.operation_models import (
+    Operation,
+    OperationEvent,
+    OperationPlanStep,
+    OperationStep,
+)
 
 OPERATION_ID = r"op_[A-Za-z0-9]{6,}"
 RETRY_AFTER = {
@@ -61,8 +66,8 @@ class OperationEventView(BaseModel):
 class OperationStepView(BaseModel):
     index: int
     name: str
-    status: Literal["SUBMITTED", "CONFIRMED", "FINALIZED", "CHAIN_REVERTED", "ORPHANED"]
-    txHash: str
+    status: Literal["PENDING", "SUBMITTED", "CONFIRMED", "FINALIZED", "CHAIN_REVERTED", "ORPHANED"]
+    txHash: str | None
 
 
 class OperationView(OperationSummary):
@@ -279,6 +284,17 @@ def create_router(authenticate: Callable[[str], str | None] | None) -> APIRouter
                 .tuples()
                 .all()
             )
+            planned = (
+                session.execute(
+                    select(OperationPlanStep.step_index, OperationPlanStep.name)
+                    .where(OperationPlanStep.operation_id == operationId)
+                    .order_by(OperationPlanStep.step_index)
+                )
+                .tuples()
+                .all()
+                if rows and rows[-1][0] == "MERCHANT_PROVISION"
+                else []
+            )
         if not rows:
             raise missing
 
@@ -295,7 +311,10 @@ def create_router(authenticate: Callable[[str], str | None] | None) -> APIRouter
         if matches_etag(if_none_match, etag):
             return Response(status_code=304, headers=headers)
 
-        steps = []
+        steps = [
+            OperationStepView(index=index, name=name, status="PENDING", txHash=None)
+            for index, name in planned
+        ]
         if step_status not in {None, "PREPARED"}:
             steps.append(
                 OperationStepView(
