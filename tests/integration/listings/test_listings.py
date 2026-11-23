@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from marketplace.listings.infrastructure import repository
 from marketplace.listings.infrastructure.models import (
     ListingProjection,
     ProjectionCheckpoint,
@@ -15,9 +16,10 @@ OTHER = "0x" + "b" * 40
 SELLER = "0x" + "c" * 40
 PAYMENT = "0x" + "d" * 40
 URL = f"/api/v1/marketplaces/1337/{MARKET}/listings"
+MAX_UINT256 = 2**256 - 1
 
 
-def seed(client: TestClient) -> None:
+def seed(client: TestClient, *, newest_listing_expiry: int | None = MAX_UINT256) -> None:
     with client.app.state.database.sessions.begin() as session:
         for chain_id, market in ((1337, MARKET), (1337, OTHER), (1, MARKET)):
             session.add(
@@ -26,18 +28,20 @@ def seed(client: TestClient) -> None:
                 )
             )
             for listing_id, active in (("1", True), ("2", False), ("3", True)):
+                newest = listing_id == "3"
                 session.add(
                     ListingProjection(
                         chain_id=chain_id,
                         marketplace_address=market,
                         listing_id=listing_id,
                         seller=SELLER,
-                        type_id=str(2**256 - 1),
+                        type_id=str(MAX_UINT256 if newest else MAX_UINT256 - 1),
                         amount="5",
                         price_per_unit=str(2**256 - 1),
                         payment_token=PAYMENT,
                         active=active,
                         listed_at=1700000000 + int(listing_id),
+                        coupon_expires_at=newest_listing_expiry if newest else MAX_UINT256,
                     )
                 )
 
@@ -75,6 +79,46 @@ def test_detail_distinguishes_missing_and_inactive_listings(client: TestClient) 
     assert inactive.json()["listing"]["active"] is False
 
 
+def test_catalog_expires_a_listing_without_writing_it(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    expiry = 1_700_000_010
+    seed(client, newest_listing_expiry=expiry)
+    now = expiry + 0.9
+    monkeypatch.setattr(repository, "time", lambda: now)
+
+    at_expiry = client.get(URL, params={"limit": 1}).json()
+    assert at_expiry["total"] == 2
+    assert [item["listing_id"] for item in at_expiry["items"]] == ["3"]
+    assert client.get(f"{URL}/3").json()["listing"]["active"] is True
+
+    now = expiry + 1.0
+    after_expiry = client.get(URL, params={"limit": 1}).json()
+    assert after_expiry["total"] == 1
+    assert [item["listing_id"] for item in after_expiry["items"]] == ["1"]
+    empty_page = client.get(URL, params={"offset": 1}).json()
+    assert empty_page["items"] == []
+    assert empty_page["total"] == 1
+    expired = client.get(f"{URL}/3")
+    assert expired.status_code == 200
+    assert expired.json()["listing"]["active"] is False
+
+    with client.app.state.database.sessions() as session:
+        row = session.get_one(ListingProjection, (1337, MARKET, "3"))
+        assert (row.active, row.coupon_expires_at) == (True, expiry)
+
+
+def test_catalog_excludes_a_listing_with_unknown_coupon_expiry(client: TestClient) -> None:
+    seed(client, newest_listing_expiry=None)
+
+    response = client.get(URL).json()
+    assert response["total"] == 1
+    assert [item["listing_id"] for item in response["items"]] == ["1"]
+    detail = client.get(f"{URL}/3")
+    assert detail.status_code == 200
+    assert detail.json()["listing"]["active"] is False
+
+
 def test_addresses_are_case_insensitive(client: TestClient) -> None:
     seed(client)
     response = client.get(URL.replace(MARKET, "0x" + "A" * 40))
@@ -93,8 +137,11 @@ def test_invalid_address_is_rejected(client: TestClient) -> None:
     assert client.get(URL.replace(MARKET, "not-an-address")).status_code == 422
 
 
-def test_no_transaction_endpoint_is_exposed(client: TestClient) -> None:
-    for route in client.get("/openapi.json").json()["paths"].values():
+def test_catalog_has_no_write_endpoint(client: TestClient) -> None:
+    paths = client.get("/openapi.json").json()["paths"]
+    for path, route in paths.items():
+        if not path.startswith("/api/v1/marketplaces/"):
+            continue
         assert not set(route) & {"post", "put", "patch", "delete"}
 
 

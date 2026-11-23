@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from marketplace.coupons.domain.entities import CouponType
+from marketplace.coupons.domain.entities import CouponTypeDraft
 from marketplace.infrastructure.database import Base
 
 
@@ -21,13 +21,13 @@ class CouponTypeModel(Base):
     chain_type_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    def to_domain(self) -> CouponType:
+    def to_domain(self) -> CouponTypeDraft:
         # SQLite's DateTime(timezone=True) doesn't persist tzinfo; everything is written
         # in UTC, so a naive value read back is always UTC.
         created_at = self.created_at
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=UTC)
-        return CouponType(
+        return CouponTypeDraft(
             id=self.id,
             name=self.name,
             start_date=self.start_date,

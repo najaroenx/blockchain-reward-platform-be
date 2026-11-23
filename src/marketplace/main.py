@@ -9,14 +9,23 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from marketplace.coupons.application.dto import AuthenticatedWallet
 from marketplace.coupons.application.exceptions import (
     CouponTypeNotFound,
     DuplicateCouponTypeName,
     IdempotencyKeyConflict,
 )
 from marketplace.coupons.application.use_cases import CouponTypeRegistry
+from marketplace.coupons.infrastructure.jwt_auth import JwtWalletAuthenticator
+from marketplace.coupons.infrastructure.mock_auth import MockTokenAuthenticator
 from marketplace.coupons.infrastructure.repository import SqlCouponTypeRepository
-from marketplace.coupons.presentation.router import create_router as create_coupons_router
+from marketplace.coupons.presentation.router import (
+    RedeemDependencies,
+    create_coupon_types_router,
+)
+from marketplace.coupons.presentation.router import (
+    create_router as create_redeem_router,
+)
 from marketplace.infrastructure.database import Database
 from marketplace.listings.application.exceptions import (
     ListingNotFound,
@@ -34,9 +43,30 @@ class HealthResponse(BaseModel):
     role: Literal["api"] = "api"
 
 
-def create_app(settings: ApiSettings | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None, *, redeem: RedeemDependencies | None = None
+) -> FastAPI:
     config = settings if settings is not None else load_settings("api")
     logger = configure_logging("api", config.log_level)
+    if redeem is None and config.mock_auth_enabled:
+        redeem = RedeemDependencies(
+            authenticate=MockTokenAuthenticator(
+                config.mock_auth_token.get_secret_value(),
+                AuthenticatedWallet(
+                    user_id=config.mock_auth_user_id,
+                    wallet_address=config.mock_auth_wallet_address,
+                ),
+            )
+        )
+    elif redeem is None and config.jwt_public_key_file is not None:
+        assert config.jwt_issuer is not None and config.jwt_audience is not None
+        redeem = RedeemDependencies(
+            authenticate=JwtWalletAuthenticator(
+                config.jwt_public_key_file,
+                issuer=config.jwt_issuer,
+                audience=config.jwt_audience,
+            )
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -52,7 +82,10 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         title="Blockchain Reward Platform",
         version="0.1.0",
         lifespan=lifespan,
-        description="Read-only marketplace projections. Transaction submission is not enabled.",
+        description=(
+            "Marketplace projections, coupon-type persistence, and coupon admission. "
+            "Redeem admission requires configured adapters; transaction submission is not enabled."
+        ),
     )
 
     @app.get("/healthz", response_model=HealthResponse, tags=["health"])
@@ -132,6 +165,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
                 raise ProjectionUnavailable from None
 
     app.include_router(create_listings_router(provide_catalog))
+    app.include_router(create_redeem_router(redeem))
 
     if config.coupon_types_enabled:
 
@@ -139,7 +173,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             with request.app.state.database.sessions() as session:
                 yield CouponTypeRegistry(SqlCouponTypeRepository(session))
 
-        app.include_router(create_coupons_router(provide_coupon_registry))
+        app.include_router(create_coupon_types_router(provide_coupon_registry))
 
     return app
 

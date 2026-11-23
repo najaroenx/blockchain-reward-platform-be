@@ -3,8 +3,8 @@
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0002_coupon_types"
-down_revision = "0001_marketplace_projection"
+revision = "0005_coupon_types"
+down_revision = "0004_listing_coupon_expiry"
 branch_labels = None
 depends_on = None
 

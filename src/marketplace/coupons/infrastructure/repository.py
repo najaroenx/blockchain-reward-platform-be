@@ -10,7 +10,7 @@ from marketplace.coupons.application.exceptions import (
     DuplicateCouponTypeName,
     IdempotencyKeyConflict,
 )
-from marketplace.coupons.domain.entities import CouponType
+from marketplace.coupons.domain.entities import CouponTypeDraft
 from marketplace.coupons.infrastructure.models import CouponTypeIdempotencyKey, CouponTypeModel
 
 
@@ -20,7 +20,7 @@ class SqlCouponTypeRepository:
 
     def create_or_replay(
         self, data: CreateCouponType, *, idempotency_key: str, request_fingerprint: str
-    ) -> CouponType:
+    ) -> CouponTypeDraft:
         replay = self._replay(idempotency_key, request_fingerprint)
         if replay is not None:
             return replay
@@ -35,16 +35,20 @@ class SqlCouponTypeRepository:
             chain_type_id=None,
             created_at=datetime.now(UTC),
         )
-        self.session.add(coupon_type)
-        self.session.add(
-            CouponTypeIdempotencyKey(
-                idempotency_key=idempotency_key,
-                request_fingerprint=request_fingerprint,
-                coupon_type_id=coupon_type.id,
-                created_at=datetime.now(UTC),
-            )
-        )
         try:
+            # Two flushes, not one add+flush: without a declared relationship()
+            # between the mappers, a single flush does not guarantee the parent
+            # coupon_types row is inserted before the FK row that references it.
+            self.session.add(coupon_type)
+            self.session.flush()
+            self.session.add(
+                CouponTypeIdempotencyKey(
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=request_fingerprint,
+                    coupon_type_id=coupon_type.id,
+                    created_at=datetime.now(UTC),
+                )
+            )
             self.session.flush()
         except IntegrityError:
             # Lost a race against a concurrent identical request, or the name is already
@@ -62,7 +66,7 @@ class SqlCouponTypeRepository:
         self.session.commit()
         return coupon_type.to_domain()
 
-    def _replay(self, idempotency_key: str, request_fingerprint: str) -> CouponType | None:
+    def _replay(self, idempotency_key: str, request_fingerprint: str) -> CouponTypeDraft | None:
         existing = self.session.get(CouponTypeIdempotencyKey, idempotency_key)
         if existing is None:
             return None
@@ -72,11 +76,11 @@ class SqlCouponTypeRepository:
         assert coupon_type is not None
         return coupon_type.to_domain()
 
-    def find(self, coupon_type_id: str) -> CouponType | None:
+    def find(self, coupon_type_id: str) -> CouponTypeDraft | None:
         row = self.session.get(CouponTypeModel, coupon_type_id)
         return row.to_domain() if row is not None else None
 
-    def list(self, *, limit: int, offset: int) -> tuple[tuple[CouponType, ...], int]:
+    def list(self, *, limit: int, offset: int) -> tuple[tuple[CouponTypeDraft, ...], int]:
         total = self.session.scalar(select(func.count()).select_from(CouponTypeModel))
         rows = self.session.scalars(
             select(CouponTypeModel)
