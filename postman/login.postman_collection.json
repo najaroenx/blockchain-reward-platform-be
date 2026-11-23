@@ -1,7 +1,7 @@
 {
   "info": {
-    "description": "Local validation needs migrated tables. Fixture login must run through verify_login_api.py against its isolated seeded SQLite app. The signer fixture returns an opaque test value, not a real JWT. No #182 signing or PostgreSQL deployment is claimed.",
-    "name": "BE-0306 merchant login",
+    "description": "Local validation needs migrated tables. Fixture login must run through verify_login_api.py against its isolated seeded SQLite or PostgreSQL app. Access tokens use real ES256 signatures with an ephemeral PEM key. The verifier checks signatures using the public key returned by HTTP JWKS. The signer-fail account injects a failure before calling the real signer.",
+    "name": "Merchant login and ES256 signing",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -243,6 +243,37 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "pm.test(\"JWKS HTTP 200\", function () {",
+                  "  pm.response.to.have.status(200); });",
+                  "pm.test(\"Public ES256 key\", function () {",
+                  "  const key=pm.response.json().keys[0];",
+                  "  pm.expect(key.alg).to.eql(\"ES256\");",
+                  "  pm.expect(key.crv).to.eql(\"P-256\");",
+                  "  pm.expect(Object.keys(key).sort()).to.eql(",
+                  "    [\"alg\",\"crv\",\"kid\",\"kty\",\"use\",\"x\",\"y\"]); });",
+                  "pm.test(\"Public cache\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Cache-Control\"))",
+                  "    .to.eql(\"public, max-age=60\"); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Public signing keys",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/.well-known/jwks.json"
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
                   "pm.test(\"No cache\", function () {",
                   "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
@@ -255,6 +286,9 @@
                   "  pm.expect(data.subject.kind).to.eql(\"MERCHANT_ADMIN\");",
                   "  pm.expect(data.subject.merchantStatus).to.eql(\"PENDING\");",
                   "});",
+                  "pm.test(\"JWT envelope\", function () {",
+                  "  pm.expect(pm.response.json().accessToken)",
+                  "    .to.match(/^[\\w-]+\\.[\\w-]+\\.[\\w-]+$/); });",
                   "pm.test(\"Secure refresh cookie\", function () {",
                   "  const cookie = pm.response.headers.get(\"Set-Cookie\");",
                   "  [\"HttpOnly\", \"Secure\", \"SameSite=strict\", \"Path=/v1/auth\",",
@@ -266,7 +300,7 @@
               }
             }
           ],
-          "name": "Login succeeds with signer fixture",
+          "name": "Login succeeds with ES256 JWT",
           "request": {
             "auth": {
               "type": "noauth"

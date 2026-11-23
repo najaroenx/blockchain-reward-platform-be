@@ -1,7 +1,7 @@
 # Python backend architecture
 
 Status: Python foundation, read-only catalog, and merchant login/session/lockout implemented.
-JWT signing remains behind the #182 TokenSigner port. Live chain integration is not enabled.
+JWT signing uses an ES256 adapter behind the TokenSigner port. Live chain integration is not enabled.
 
 ## Existing behavior and migration scope
 
@@ -88,13 +88,14 @@ application do not depend on FastAPI, Pydantic, or SQLAlchemy.
 ## Responsibilities
 
 The auth feature owns merchant login, session storage, and lockout. `main.py` wires a SQL repository
-and password verifier into `Login`. An injected `AuthDependencies` supplies the #182 signer.
-The default signer fails with AUTH_UNAVAILABLE and does not create a session. There is no mock
-signer on the normal API entry point.
+and password verifier into `Login`. The configured signer loads a mounted P-256 private PEM at
+startup and publishes its public JWK at `/.well-known/jwks.json`. Development/test without signer
+configuration fails with AUTH_UNAVAILABLE and creates no session. Production requires complete
+signer configuration. No mock signer is used by the normal API entry point.
 
 Migration `0002_auth_login` adds the FEAT-03 identity/session foundation because the Python base
 did not contain those tables. It does not execute the archived SQL. Customer OTP, merchant
-onboarding, refresh/logout routes, JWT key management, and shared-schema reconciliation retain
+onboarding, refresh/logout routes, JWT key rotation, and shared-schema reconciliation retain
 their separate owners. See [merchant login](auth-login.md) for source discrepancies and acceptance evidence.
 
 Rate reservations commit hashed PENDING attempts before password work and signing. Success then
@@ -135,7 +136,7 @@ Tests use [Starlette's supported HTTPX2 test client](https://www.starlette.io/te
 | --- | --- |
 | Intended deployment | Confirm chain ID, RPC, deployment block, Coupon/Vault/THB/proxy addresses, implementation address, and implementation revision/runtime code. The vendored ABI commit is only a candidate. |
 | Wallet custody and signing | Decide user-signed transactions versus worker custody/KMS, how users prove wallet ownership, and which operations may use `redeemFrom`. |
-| Authentication | Integrate the #182 signer, choose keys and rotation, and complete customer OTP, account roles, revocation APIs, and wallet-to-user authorization. Merchant login/session/lockout is implemented. |
+| Authentication | Provision the mounted ES256 PEM through deployment secrets, complete key rotation (#184), customer OTP, account roles, revocation APIs, and wallet-to-user authorization. Merchant login/session/lockout and JWT signing are implemented. |
 | Points | Confirm the deployed ERC-20 addresses and precision. Contract source accepts ERC-20 payments, not a backend-only points balance or native ETH. |
 | Queue and operations | Select queue/storage, retries, idempotency scope, nonce ownership, replacement policy, and receipt/finality tracking before implementing a transaction worker. |
 | Indexing and reorgs | Select start block, finality policy, replay/reorg rollback, checkpoint ownership, and deployment-upgrade handling before enabling a projection writer. |

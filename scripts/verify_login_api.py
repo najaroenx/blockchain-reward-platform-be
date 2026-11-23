@@ -14,8 +14,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import jwt
 import psycopg
 import uvicorn
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 from openapi_spec_validator import validate
 from psycopg import sql
 from sqlalchemy.engine import make_url
@@ -24,6 +27,7 @@ from marketplace.auth.application.dto import AccessClaims
 from marketplace.auth.domain.entities import LoginPolicy
 from marketplace.auth.infrastructure.models import Merchant, MerchantAdmin
 from marketplace.auth.infrastructure.passwords import Argon2PasswordVerifier
+from marketplace.auth.infrastructure.signing import Es256TokenSigner
 from marketplace.auth.presentation.router import AuthDependencies
 from marketplace.infrastructure.database import Database
 from marketplace.main import create_app
@@ -31,6 +35,9 @@ from marketplace.settings import ApiSettings
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = "/v1/auth/login"
+JWKS_URL = "/.well-known/jwks.json"
+JWT_ISSUER = "https://auth.example.test"
+JWT_AUDIENCE = "reward-api"
 PASSWORD = "fixture-only-password"
 SPEC = ROOT / "docs/api/login.openapi.json"
 COLLECTION = ROOT / "postman/login.postman_collection.json"
@@ -39,7 +46,7 @@ ENVIRONMENT = ROOT / "postman/login.local.postman_environment.json"
 
 def document() -> dict[str, Any]:
     schema = create_app(ApiSettings(database_url="sqlite:///:memory:", APP_ENV="test")).openapi()
-    schema["paths"] = {URL: schema["paths"][URL]}
+    schema["paths"] = {path: schema["paths"][path] for path in (URL, JWKS_URL)}
     schema["info"]["title"] = "Merchant login API"
     schema["servers"] = [{"url": "http://127.0.0.1:3000", "description": "Local development"}]
     return schema
@@ -72,6 +79,9 @@ def item(
             '  pm.expect(data.subject.kind).to.eql("MERCHANT_ADMIN");',
             '  pm.expect(data.subject.merchantStatus).to.eql("PENDING");',
             "});",
+            'pm.test("JWT envelope", function () {',
+            "  pm.expect(pm.response.json().accessToken)",
+            "    .to.match(/^[\\w-]+\\.[\\w-]+\\.[\\w-]+$/); });",
             'pm.test("Secure refresh cookie", function () {',
             '  const cookie = pm.response.headers.get("Set-Cookie");',
             '  ["HttpOnly", "Secure", "SameSite=strict", "Path=/v1/auth",',
@@ -128,8 +138,37 @@ def collection() -> dict[str, Any]:
         ),
     ]
     fixtures = [
+        {
+            "name": "Public signing keys",
+            "request": {
+                "method": "GET",
+                "auth": {"type": "noauth"},
+                "url": "{{baseUrl}}" + JWKS_URL,
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            'pm.test("JWKS HTTP 200", function () {',
+                            "  pm.response.to.have.status(200); });",
+                            'pm.test("Public ES256 key", function () {',
+                            "  const key=pm.response.json().keys[0];",
+                            '  pm.expect(key.alg).to.eql("ES256");',
+                            '  pm.expect(key.crv).to.eql("P-256");',
+                            "  pm.expect(Object.keys(key).sort()).to.eql(",
+                            '    ["alg","crv","kid","kty","use","x","y"]); });',
+                            'pm.test("Public cache", function () {',
+                            '  pm.expect(pm.response.headers.get("Cache-Control"))',
+                            '    .to.eql("public, max-age=60"); });',
+                        ],
+                    },
+                }
+            ],
+        },
         item(
-            "Login succeeds with signer fixture",
+            "Login succeeds with ES256 JWT",
             {"email": "owner@shop.example", "password": PASSWORD},
             200,
         ),
@@ -196,13 +235,14 @@ def collection() -> dict[str, Any]:
     )
     return {
         "info": {
-            "name": "BE-0306 merchant login",
+            "name": "Merchant login and ES256 signing",
             "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
             "description": (
                 "Local validation needs migrated tables. Fixture login must run through "
-                "verify_login_api.py against its isolated seeded SQLite app. "
-                "The signer fixture returns an opaque test value, not a real JWT. "
-                "No #182 signing or PostgreSQL deployment is claimed."
+                "verify_login_api.py against its isolated seeded SQLite or PostgreSQL app. "
+                "Access tokens use real ES256 signatures with an ephemeral PEM key. "
+                "The verifier checks signatures using the public key returned by HTTP JWKS. "
+                "The signer-fail account injects a failure before calling the real signer."
             ),
         },
         "item": [
@@ -213,10 +253,13 @@ def collection() -> dict[str, Any]:
 
 
 class FixtureSigner:
+    def __init__(self, signer: Es256TokenSigner) -> None:
+        self.signer = signer
+
     def sign(self, claims: AccessClaims) -> str:
         if claims.sub == "adm_signer-fail":
             raise RuntimeError("private signer fixture failure")
-        return "fixture-access-" + claims.jti
+        return self.signer.sign(claims)
 
 
 @contextmanager
@@ -253,6 +296,14 @@ def run_newman(executable: str, *, postgres: bool = False) -> None:
             check=True,
         )
         hasher = Argon2PasswordVerifier()
+        key_file = path / "jwt-secret.pem"
+        key_file.write_bytes(
+            ec.generate_private_key(ec.SECP256R1()).private_bytes(
+                Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+            )
+        )
+        key_file.chmod(0o600)
+        signer = Es256TokenSigner(key_file, issuer=JWT_ISSUER, audience=JWT_AUDIENCE)
         encoded_password = hasher.hasher.hash(PASSWORD)
         database = Database(url)
         try:
@@ -278,7 +329,9 @@ def run_newman(executable: str, *, postgres: bool = False) -> None:
             database.close()
         app = create_app(
             ApiSettings(database_url=url, APP_ENV="test"),
-            auth=AuthDependencies(hasher, FixtureSigner(), LoginPolicy()),
+            auth=AuthDependencies(
+                hasher, FixtureSigner(signer), LoginPolicy(), key_publisher=signer
+            ),
         )
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
@@ -318,14 +371,44 @@ def run_newman(executable: str, *, postgres: bool = False) -> None:
                 if not report.exists():
                     raise RuntimeError(completed.stderr)
                 run = json.loads(report.read_text())["run"]
+                executions = run["executions"]
+                jwks = next(
+                    json.loads(bytes(entry["response"]["stream"]["data"]))
+                    for entry in executions
+                    if entry["item"]["name"] == "Public signing keys"
+                )
+                verified = 0
+                for entry in executions:
+                    if entry["request"]["method"] != "POST" or entry["response"]["code"] != 200:
+                        continue
+                    token = json.loads(bytes(entry["response"]["stream"]["data"]))["accessToken"]
+                    header = jwt.get_unverified_header(token)
+                    public = next(key for key in jwks["keys"] if key["kid"] == header["kid"])
+                    decoded = jwt.decode(
+                        token,
+                        jwt.PyJWK.from_dict(public).key,
+                        algorithms=["ES256"],
+                        issuer=JWT_ISSUER,
+                        audience=JWT_AUDIENCE,
+                    )
+                    if decoded["exp"] - decoded["iat"] != 900:
+                        raise RuntimeError("JWT lifetime does not match the login contract")
+                    verified += 1
                 requests = run["stats"]["requests"]["total"]
                 assertions = run["stats"]["assertions"]["total"]
                 print(
                     f"Newman: {requests} requests, {assertions} assertions, "
                     f"{len(run['failures'])} failures"
                 )
-                if completed.returncode or run["failures"] or requests != 25 or not assertions:
+                if (
+                    completed.returncode
+                    or run["failures"]
+                    or requests != 26
+                    or not assertions
+                    or verified != 1
+                ):
                     raise RuntimeError(json.dumps(run["failures"], ensure_ascii=False))
+                print(f"Verified {verified} ES256 JWT using HTTP JWKS and issuer/audience checks")
             finally:
                 server.should_exit = True
                 thread.join(timeout=10)

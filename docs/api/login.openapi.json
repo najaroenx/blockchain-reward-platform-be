@@ -91,6 +91,22 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "JwksResponse": {
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/PublicJwk"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "JwksResponse",
+        "type": "object"
+      },
       "ListingResponse": {
         "properties": {
           "active": {
@@ -231,6 +247,57 @@
         "title": "PageResponse",
         "type": "object"
       },
+      "PublicJwk": {
+        "additionalProperties": false,
+        "properties": {
+          "alg": {
+            "const": "ES256",
+            "default": "ES256",
+            "title": "Alg",
+            "type": "string"
+          },
+          "crv": {
+            "const": "P-256",
+            "default": "P-256",
+            "title": "Crv",
+            "type": "string"
+          },
+          "kid": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Kid",
+            "type": "string"
+          },
+          "kty": {
+            "const": "EC",
+            "default": "EC",
+            "title": "Kty",
+            "type": "string"
+          },
+          "use": {
+            "const": "sig",
+            "default": "sig",
+            "title": "Use",
+            "type": "string"
+          },
+          "x": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "X",
+            "type": "string"
+          },
+          "y": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Y",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kid",
+          "x",
+          "y"
+        ],
+        "title": "PublicJwk",
+        "type": "object"
+      },
       "SubjectResponse": {
         "properties": {
           "id": {
@@ -315,9 +382,41 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "Public ES256 verification keys. Contains no private key material.",
+        "operationId": "signingPublicKeys",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JwksResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Public Keys",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/v1/auth/login": {
       "post": {
-        "description": "Verify merchant-admin credentials. Refresh tokens are sent only in a secure HttpOnly cookie. Signing requires the #182 TokenSigner adapter.",
+        "description": "Verify merchant-admin credentials. Refresh tokens are sent only in a secure HttpOnly cookie. Configured ES256 signing adds issuer, audience and a JWKS key ID.",
         "operationId": "merchantLogin",
         "requestBody": {
           "content": {

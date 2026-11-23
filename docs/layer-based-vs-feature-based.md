@@ -71,7 +71,7 @@ src/marketplace/
 
 ปัจจุบัน `listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มีเฉพาะโครง
 Python packages ยังไม่มี use case, ORM model หรือ HTTP endpoint สำหรับสร้างหรือ mint คูปอง
-ส่วน `auth` มี login/session/lockout และ `TokenSigner` interface โดยยังไม่ implement ตัวเซ็น JWT จริง
+ส่วน `auth` มี login/session/lockout และ ES256 signer ที่ทำตาม `TokenSigner` interface พร้อม public JWKS
 
 ## เปรียบเทียบการใช้งาน
 

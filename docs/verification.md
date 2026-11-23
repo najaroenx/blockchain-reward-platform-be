@@ -1,5 +1,20 @@
 # Python migration verification
 
+## ES256 signing on BE-0393
+
+Verified locally on 2026-11-13 with Python 3.12.11:
+
+- Ruff lint/format, strict mypy for 45 source files, and all six import boundaries passed.
+- Full pytest suite: 109 passed. New checks cover ES256 signatures, HTTP JWKS, issuer/audience,
+  expiry, tampering, alternate algorithms, invalid PEMs, sanitized errors, and isolated role config.
+- Live PostgreSQL auth/migration suite: 38 passed, including 20 concurrent logins with real JWTs.
+- Newman on SQLite and PostgreSQL: 26 requests / 107 assertions passed on each. The verifier decoded the
+  successful JWT using the public HTTP JWKS and configured issuer/audience.
+- OpenAPI validation and generated Postman artifact checks passed. Test PEMs are generated in
+  temporary directories and removed after use; production secrets have not been provisioned.
+
+See [ES256 signing](jwt-signing.md) for configuration, source reconciliation, and rotation limits.
+
 ## Merchant login on BE-0306
 
 Verified locally on 2026-11-12 with Python 3.12.11:
@@ -12,8 +27,8 @@ Verified locally on 2026-11-12 with Python 3.12.11:
   run passed 31 tests, including T1/T2/T3/T4/T5/T8 storage invariants and concurrent login/lockout.
 - Generated login OpenAPI passed schema validation and matches the runtime; Postman artifacts match.
 - Newman against isolated seeded SQLite and PostgreSQL HTTP apps passed 25 requests and 103 assertions each. The fixture uses
-  real Argon2 verification and an opaque test signer. Production defaults to an unavailable signer
-  until #182 is integrated, returning 503 without creating a session or cookie.
+  real Argon2 verification and an opaque test signer. At that revision the default signer was
+  unavailable pending #182, returning 503 without creating a session or cookie.
 - PostgreSQL databases are generated per test/run and removed afterward. The Compose container
   remains running on loopback port 5432. Refresh/logout API flows and a shared staging deployment
   remain unverified; T2/T3 evidence here is at the database/repository layer.
