@@ -82,6 +82,13 @@ escrow ซ้ำใน backend รายการแบบ list แสดงเ�
 
 Catalog reads ปัจจุบันเป็น public และมีเฉพาะข้อมูล listing บน chain ไม่มี endpoint เขียน listings
 
+Catalog ใช้ `coupon_expires_at` ของ listing projection และคำนวณสถานะทุกครั้งที่อ่าน
+รายการยัง active ในวินาทีที่ตรงกับ `expireDate` และหายจากหน้าตลาดตั้งแต่วินาทีถัดไป
+หน้า detail ยังเปิดได้และแสดง `active: false` โดยค่า `active` ที่ index จาก chain ยังอยู่ในฐานข้อมูล
+ตอนสร้าง projection หรือ backfill ให้เติม `coupon_expires_at` จาก `Coupon.getCouponData(typeId)`
+ของ deployment ที่ตรวจสอบแล้ว โดยใช้ Unix seconds หากเขียน SQL ใน SQLite โดยตรง ให้เติมเลขศูนย์ด้านหน้าจนครบ 78 หลัก
+แถวเก่าที่ค่านี้ยังเป็น `NULL` จะปรากฏเฉพาะในหน้า detail ด้วย `active: false`
+
 ## Redeem admission ที่ยังไม่ต่อ production adapters
 
 `POST /v1/coupons/redeem` รับเฉพาะ `typeId` แบบ canonical uint256 decimal string
