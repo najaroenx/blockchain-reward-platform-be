@@ -1,0 +1,493 @@
+{
+  "components": {
+    "schemas": {
+      "OperationEventView": {
+        "properties": {
+          "actor": {
+            "enum": [
+              "SYSTEM",
+              "MERCHANT_ADMIN",
+              "CUSTOMER",
+              "PLATFORM_ADMIN"
+            ],
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "fromStatus": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PENDING",
+                  "SUBMITTED",
+                  "CONFIRMED",
+                  "FINALIZED",
+                  "CHAIN_REVERTED",
+                  "ORPHANED",
+                  "MANUAL_REVIEW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fromstatus"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "toStatus": {
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED",
+              "MANUAL_REVIEW"
+            ],
+            "title": "Tostatus",
+            "type": "string"
+          },
+          "txHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txhash"
+          }
+        },
+        "required": [
+          "seq",
+          "fromStatus",
+          "toStatus",
+          "actor",
+          "txHash",
+          "createdAt"
+        ],
+        "title": "OperationEventView",
+        "type": "object"
+      },
+      "OperationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "OperationPage",
+        "type": "object"
+      },
+      "OperationStepView": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "txHash": {
+            "title": "Txhash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "name",
+          "status",
+          "txHash"
+        ],
+        "title": "OperationStepView",
+        "type": "object"
+      },
+      "OperationSummary": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "eventSeq": {
+            "title": "Eventseq",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "operationId": {
+            "title": "Operationid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED",
+              "MANUAL_REVIEW"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "status",
+          "eventSeq",
+          "createdAt"
+        ],
+        "title": "OperationSummary",
+        "type": "object"
+      },
+      "OperationView": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "errorNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errornote"
+          },
+          "eventSeq": {
+            "title": "Eventseq",
+            "type": "integer"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/OperationEventView"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "finalizedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finalizedat"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "operationId": {
+            "title": "Operationid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED",
+              "MANUAL_REVIEW"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/OperationStepView"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "terminal": {
+            "title": "Terminal",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "status",
+          "eventSeq",
+          "createdAt",
+          "finalizedAt",
+          "terminal",
+          "errorNote",
+          "steps",
+          "events"
+        ],
+        "title": "OperationView",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Operation status",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/operations": {
+      "get": {
+        "operationId": "listOperations",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PENDING",
+                    "SUBMITTED",
+                    "CONFIRMED",
+                    "FINALIZED",
+                    "CHAIN_REVERTED",
+                    "ORPHANED",
+                    "MANUAL_REVIEW"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "MERCHANT_PROVISION",
+                    "POINT_TYPE_CREATE",
+                    "POINT_TRANSFER",
+                    "COUPON_TYPE_CREATE",
+                    "COUPON_ISSUE",
+                    "COUPON_REDEEM",
+                    "LISTING_CREATE",
+                    "LISTING_DELETE",
+                    "LISTING_BUY",
+                    "THB_MINT"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid filters or cursor."
+          },
+          "401": {
+            "description": "Access token is missing or invalid."
+          },
+          "4XX": {
+            "description": "Client error."
+          },
+          "503": {
+            "description": "Operation status is unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Operations",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/v1/operations/{operationId}": {
+      "get": {
+        "operationId": "getOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operationId",
+            "required": true,
+            "schema": {
+              "title": "Operationid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-none-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationView"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The event sequence has not changed."
+          },
+          "401": {
+            "description": "Access token is missing or invalid."
+          },
+          "404": {
+            "description": "Operation was not found."
+          },
+          "4XX": {
+            "description": "Client error."
+          },
+          "503": {
+            "description": "Operation status is unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Operation",
+        "tags": [
+          "operations"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "info": {
+    "name": "Operation status",
+    "description": "Local operation reader checks seeded by scripts/verify_operations_api.py.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": "mock-redeem-token"
+    }
+  ],
+  "item": [
+    {
+      "name": "Read orphaned operation and history",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/operations/op_localdemo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const op = pm.response.json();",
+              "pm.test('ORPHANED at seq 4', () => {",
+              "  pm.expect(op.status).to.eql('ORPHANED');",
+              "  pm.expect(op.eventSeq).to.eql(4);",
+              "  pm.expect(op.events.map(e => e.seq)).to.eql([1, 2, 3, 4]);",
+              "});",
+              "pm.test('Retry after 10 seconds', () => pm.expect(pm.response.headers.get('Retry-After')).to.eql('10'));",
+              "pm.collectionVariables.set('operationETag', pm.response.headers.get('ETag'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Poll with an unchanged ETag",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "{{operationETag}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/operations/op_localdemo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 304', () => pm.response.to.have.status(304));",
+              "pm.test('Empty 304 body', () => pm.expect(pm.response.text()).to.eql(''));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List owned operations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/operations?status=ORPHANED&kind=COUPON_REDEEM"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('One owned operation', () => pm.expect(pm.response.json().items.map(o => o.operationId)).to.eql(['op_localdemo']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Hide foreign operations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/operations/op_foreigndemo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Generic 404', () => pm.expect(pm.response.json().error.code).to.eql('OPERATION_NOT_FOUND'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Require access token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/operations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a malformed cursor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/operations?cursor=%21%21"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Explicit cursor error', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CURSOR'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

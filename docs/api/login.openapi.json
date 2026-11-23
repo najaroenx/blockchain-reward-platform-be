@@ -355,6 +355,278 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "OperationEventView": {
+        "properties": {
+          "actor": {
+            "enum": [
+              "SYSTEM",
+              "MERCHANT_ADMIN",
+              "CUSTOMER",
+              "PLATFORM_ADMIN"
+            ],
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "fromStatus": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PENDING",
+                  "SUBMITTED",
+                  "CONFIRMED",
+                  "FINALIZED",
+                  "CHAIN_REVERTED",
+                  "ORPHANED",
+                  "MANUAL_REVIEW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fromstatus"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "toStatus": {
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED",
+              "MANUAL_REVIEW"
+            ],
+            "title": "Tostatus",
+            "type": "string"
+          },
+          "txHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txhash"
+          }
+        },
+        "required": [
+          "seq",
+          "fromStatus",
+          "toStatus",
+          "actor",
+          "txHash",
+          "createdAt"
+        ],
+        "title": "OperationEventView",
+        "type": "object"
+      },
+      "OperationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "OperationPage",
+        "type": "object"
+      },
+      "OperationStepView": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "txHash": {
+            "title": "Txhash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "name",
+          "status",
+          "txHash"
+        ],
+        "title": "OperationStepView",
+        "type": "object"
+      },
+      "OperationSummary": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "eventSeq": {
+            "title": "Eventseq",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "operationId": {
+            "title": "Operationid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED",
+              "MANUAL_REVIEW"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "status",
+          "eventSeq",
+          "createdAt"
+        ],
+        "title": "OperationSummary",
+        "type": "object"
+      },
+      "OperationView": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "errorNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errornote"
+          },
+          "eventSeq": {
+            "title": "Eventseq",
+            "type": "integer"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/OperationEventView"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "finalizedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finalizedat"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "operationId": {
+            "title": "Operationid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "CONFIRMED",
+              "FINALIZED",
+              "CHAIN_REVERTED",
+              "ORPHANED",
+              "MANUAL_REVIEW"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/OperationStepView"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "terminal": {
+            "title": "Terminal",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "status",
+          "eventSeq",
+          "createdAt",
+          "finalizedAt",
+          "terminal",
+          "errorNote",
+          "steps",
+          "events"
+        ],
+        "title": "OperationView",
+        "type": "object"
+      },
       "PageResponse": {
         "properties": {
           "indexed_block": {

@@ -3,7 +3,7 @@ from sqlite3 import Connection as SqliteConnection
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.pool import ConnectionPoolEntry, StaticPool
+from sqlalchemy.pool import ConnectionPoolEntry, PoolResetState, StaticPool
 
 
 class Base(DeclarativeBase):
@@ -31,6 +31,7 @@ class Database:
             )
         if parsed.get_backend_name() == "sqlite":
             event.listen(self.engine, "connect", enable_foreign_keys)
+            event.listen(self.engine, "reset", rollback_open_sqlite_transaction)
         self.sessions: sessionmaker[Session] = sessionmaker(self.engine, expire_on_commit=False)
 
     engine: Engine
@@ -41,3 +42,11 @@ class Database:
 
 def enable_foreign_keys(connection: SqliteConnection, record: ConnectionPoolEntry) -> None:
     connection.execute("PRAGMA foreign_keys=ON")
+
+
+def rollback_open_sqlite_transaction(
+    connection: SqliteConnection, record: ConnectionPoolEntry, state: PoolResetState
+) -> None:
+    # A rejected deferred constraint leaves the SQLite transaction open after COMMIT fails.
+    if connection.in_transaction:
+        connection.rollback()
