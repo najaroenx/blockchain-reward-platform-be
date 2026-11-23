@@ -1,10 +1,10 @@
+from sqlite3 import Connection
 from sqlite3 import Connection as SqliteConnection
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-from sqlalchemy.pool.base import ConnectionPoolEntry
+from sqlalchemy.pool import ConnectionPoolEntry, StaticPool
 
 
 class Base(DeclarativeBase):
@@ -31,7 +31,13 @@ class Database:
                 isolation_level="REPEATABLE READ",
             )
         if parsed.get_backend_name() == "sqlite":
-            event.listen(self.engine, "connect", enable_foreign_keys)
+
+            @event.listens_for(self.engine, "connect")
+            def enable_foreign_keys(connection: Connection, record: ConnectionPoolEntry) -> None:
+                cursor = connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+
         self.sessions: sessionmaker[Session] = sessionmaker(self.engine, expire_on_commit=False)
 
     engine: Engine
