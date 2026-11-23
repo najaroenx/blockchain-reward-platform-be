@@ -36,8 +36,10 @@ class IdempotencyKey(Base):
         CheckConstraint("length(key) BETWEEN 8 AND 255", name="ck_idem_key_length"),
         CheckConstraint("length(fingerprint) = 32", name="ck_idem_fingerprint_length"),
         CheckConstraint(
-            "(operation_id IS NULL AND response_status IS NULL AND response_body IS NULL) OR "
-            "(operation_id IS NOT NULL AND response_status IS NOT NULL "
+            "(operation_id IS NULL AND deposit_id IS NULL "
+            "AND response_status IS NULL AND response_body IS NULL) OR "
+            "(((operation_id IS NOT NULL AND deposit_id IS NULL) OR "
+            "(operation_id IS NULL AND deposit_id IS NOT NULL)) AND response_status IS NOT NULL "
             "AND response_status BETWEEN 200 AND 599 AND response_body IS NOT NULL)",
             name="ck_idem_acknowledgement",
         ),
@@ -49,6 +51,9 @@ class IdempotencyKey(Base):
     key: Mapped[str] = mapped_column(String(255))
     fingerprint: Mapped[bytes] = mapped_column(LargeBinary(32))
     operation_id: Mapped[str | None] = mapped_column(ForeignKey("operation.id"))
+    deposit_id: Mapped[str | None] = mapped_column(
+        ForeignKey("thb_deposit.id", name="fk_idem_deposit")
+    )
     response_status: Mapped[int | None] = mapped_column(Integer)
     response_body: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

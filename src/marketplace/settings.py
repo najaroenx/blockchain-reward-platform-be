@@ -54,6 +54,7 @@ class ApiSettings(SharedSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=3000, ge=1, le=65535)
     mock_auth_enabled: bool = False
+    mock_deposit_psp_enabled: bool = False
     mock_auth_token: SecretStr = Field(default=SecretStr("mock-redeem-token"), min_length=1)
     mock_auth_user_id: str = Field(default="mock-user", min_length=1)
     mock_auth_wallet_address: str = Field(default="0x" + "a" * 40, pattern=r"^0x[0-9a-fA-F]{40}$")
@@ -63,6 +64,8 @@ class ApiSettings(SharedSettings):
 
     @model_validator(mode="after")
     def jwt_verification_configuration(self) -> Self:
+        if self.mock_deposit_psp_enabled and self.environment == "production":
+            raise ValueError("mock deposit payments are not allowed in production")
         configured = (
             self.jwt_public_key_file is not None,
             self.jwt_issuer is not None,
