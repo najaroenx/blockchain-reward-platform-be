@@ -3,14 +3,17 @@ from datetime import datetime
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    Computed,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -20,12 +23,76 @@ from marketplace.infrastructure.database import Base
 
 class Operation(Base):
     __tablename__ = "operation"
+    __table_args__ = (Index("ix_operation_actor_recent", "actor_user_id", "created_at", "id"),)
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     kind: Mapped[str] = mapped_column(String(32))
     actor_user_id: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32))
     payload: Mapped[dict[str, str]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    event_seq: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+
+
+class OperationEventExpected(Base):
+    __tablename__ = "operation_event_expected"
+    __table_args__ = (
+        UniqueConstraint("operation_id", "seq", "to_status", name="uq_opexpected_status"),
+        ForeignKeyConstraint(
+            ["operation_id", "seq", "to_status"],
+            ["operation_event.operation_id", "operation_event.seq", "operation_event.to_status"],
+            name="fk_opexpected_event",
+            deferrable=True,
+            initially="DEFERRED",
+            use_alter=True,
+        ),
+    )
+
+    operation_id: Mapped[str] = mapped_column(ForeignKey("operation.id"), primary_key=True)
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True)
+    to_status: Mapped[str] = mapped_column(String(32))
+
+
+class OperationEvent(Base):
+    __tablename__ = "operation_event"
+    __table_args__ = (
+        UniqueConstraint("operation_id", "seq", "to_status", name="uq_opevent_status"),
+        ForeignKeyConstraint(
+            ["operation_id", "seq", "to_status"],
+            [
+                "operation_event_expected.operation_id",
+                "operation_event_expected.seq",
+                "operation_event_expected.to_status",
+            ],
+            name="fk_opevent_expected",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        ForeignKeyConstraint(
+            ["operation_id", "previous_seq", "from_status"],
+            ["operation_event.operation_id", "operation_event.seq", "operation_event.to_status"],
+            name="fk_opevent_previous",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        CheckConstraint("seq >= 1 AND ((seq = 1) = (from_status IS NULL))", name="ck_opevent_seq"),
+        CheckConstraint(
+            "actor IN ('SYSTEM','MERCHANT_ADMIN','CUSTOMER','PLATFORM_ADMIN')",
+            name="ck_opevent_actor",
+        ),
+    )
+
+    operation_id: Mapped[str] = mapped_column(ForeignKey("operation.id"), primary_key=True)
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True)
+    previous_seq: Mapped[int | None] = mapped_column(
+        Integer, Computed("CASE WHEN seq > 1 THEN seq - 1 END", persisted=True)
+    )
+    from_status: Mapped[str | None] = mapped_column(String(32))
+    to_status: Mapped[str] = mapped_column(String(32))
+    actor: Mapped[str] = mapped_column(String(24), server_default="SYSTEM")
+    tx_hash: Mapped[str | None] = mapped_column(String(66))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    is_snapshot: Mapped[bool] = mapped_column(server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

@@ -13,6 +13,7 @@ from marketplace.coupons.application.execution import (
     SignedRedeem,
 )
 from marketplace.coupons.infrastructure.receipts import correlate_receipt
+from marketplace.infrastructure.operation_history import OperationStatus, advance_operation
 from marketplace.infrastructure.operation_models import (
     ChainEvent,
     Operation,
@@ -113,17 +114,16 @@ class SqlRedeemExecutionStore:
     def submitted(self, operation_id: str) -> None:
         now = datetime.now(UTC)
         with self.engine.begin() as connection:
-            changed = connection.execute(
+            tx_hash = connection.execute(
                 update(OperationStep)
                 .where(
                     OperationStep.operation_id == operation_id, OperationStep.status == "PREPARED"
                 )
                 .values(status="SUBMITTED", submitted_at=now)
-            ).rowcount
-            if changed:
-                connection.execute(
-                    update(Operation).where(Operation.id == operation_id).values(status="SUBMITTED")
-                )
+                .returning(OperationStep.tx_hash)
+            ).scalar_one_or_none()
+            if tx_hash is not None:
+                advance_operation(connection, operation_id, "SUBMITTED", tx_hash=tx_hash)
 
     def project(self, operation_id: str, receipt: RedeemReceipt) -> dict[str, object]:
         payload = self.payload(operation_id)
@@ -131,7 +131,7 @@ class SqlRedeemExecutionStore:
         if transaction is None:
             raise ReceiptCorrelationError("Receipt has no persisted signed transaction")
         result, logs = correlate_receipt(payload, transaction.tx_hash, receipt)
-        status = "CONFIRMED" if receipt.status == 1 else "CHAIN_REVERTED"
+        status: OperationStatus = "CONFIRMED" if receipt.status == 1 else "CHAIN_REVERTED"
         with self.engine.begin() as connection:
             claim = (
                 (postgres_insert if connection.dialect.name == "postgresql" else sqlite_insert)(
@@ -190,8 +190,19 @@ class SqlRedeemExecutionStore:
                 .where(OperationStep.operation_id == operation_id)
                 .values(status=status)
             )
-            connection.execute(
-                update(Operation).where(Operation.id == operation_id).values(status=status)
+            prior_status = connection.execute(
+                select(Operation.status).where(Operation.id == operation_id).with_for_update()
+            ).scalar_one()
+            if prior_status == "PENDING":
+                # A correlated receipt can arrive before the local submission was recorded.
+                advance_operation(connection, operation_id, "SUBMITTED", tx_hash=receipt.tx_hash)
+            error_code = result.get("code")
+            advance_operation(
+                connection,
+                operation_id,
+                status,
+                tx_hash=receipt.tx_hash,
+                error_code=error_code if isinstance(error_code, str) else None,
             )
         return result
 
@@ -232,7 +243,5 @@ class SqlRedeemExecutionStore:
             saved_code = connection.execute(
                 select(RedeemRefusal.code).where(RedeemRefusal.operation_id == operation_id)
             ).scalar_one()
-            connection.execute(
-                update(Operation).where(Operation.id == operation_id).values(status="MANUAL_REVIEW")
-            )
+            advance_operation(connection, operation_id, "MANUAL_REVIEW", error_code=saved_code)
         return {"code": saved_code}
