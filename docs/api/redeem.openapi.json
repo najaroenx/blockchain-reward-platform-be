@@ -143,7 +143,7 @@
     }
   },
   "info": {
-    "description": "Marketplace projections, coupon-type persistence, and coupon admission. Redeem admission requires configured adapters; transaction submission is not enabled.",
+    "description": "Marketplace projections, coupon-type persistence, coupon admission, and merchant login. Redeem admission requires configured adapters; transaction submission is not enabled.",
     "title": "Coupon redeem admission API",
     "version": "0.1.0"
   },

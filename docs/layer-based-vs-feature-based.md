@@ -57,6 +57,11 @@ src/marketplace/
 │   ├── application/
 │   ├── infrastructure/
 │   └── presentation/
+├── auth/
+│   ├── domain/
+│   ├── application/
+│   ├── infrastructure/
+│   └── presentation/
 └── infrastructure/
     ├── database.py
     └── blockchain/
@@ -66,10 +71,11 @@ src/marketplace/
 การจัดกลุ่มเริ่มจากคำถามว่าโค้ดนี้เป็นของ listings หรือ coupons แล้วจึงแบ่ง layer
 การแก้หนึ่ง feature จึงอยู่ใต้โฟลเดอร์เดียวกัน ส่วนเครื่องมือที่ใช้ร่วมกันอยู่ระดับ package
 
-ปัจจุบัน `listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มี redeem route,
-DTO และ use case ที่กำหนด amount เป็น 1 แต่ยังไม่มี production adapters สำหรับ auth,
-deployment และ DB admission ค่าเริ่มต้นจึงยังไม่รับงาน redeem
-ส่วน ORM model และ HTTP endpoint สำหรับสร้างหรือ mint คูปองยังไม่มี implementation
+ปัจจุบัน `listings` มี implementation สำหรับอ่านรายการขาย `coupons` มีทั้ง coupon-type draft API
+(CRUD ในฐานข้อมูล ปิดด้วย `COUPON_TYPES_ENABLED` ค่าเริ่มต้น) และ redeem route, DTO, use case ที่กำหนด
+amount เป็น 1 แต่ยังไม่มี production adapters สำหรับ auth, deployment และ DB admission ของ redeem
+ค่าเริ่มต้นจึงยังไม่รับงาน redeem ส่วนการ mint คูปองบน chain ยังไม่มี implementation
+ส่วน `auth` มี login/session/lockout และ ES256 signer ที่ทำตาม `TokenSigner` interface พร้อม public JWKS
 
 ## เปรียบเทียบการใช้งาน
 

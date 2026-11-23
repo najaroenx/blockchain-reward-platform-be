@@ -12,6 +12,8 @@ SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ 
 มีตัวตรวจ JWT แบบ ES256 จาก #182 แล้ว ยังไม่มี purchase endpoint
 มี coupon-type draft API (BE-0602 Phase 1) ที่บันทึก/อ่านข้อมูลใน database เท่านั้น ปิดด้วยค่าเริ่มต้น
 ผ่าน `COUPON_TYPES_ENABLED` และยังไม่ส่งธุรกรรม `createCouponType` ขึ้น chain
+มี login/session/lockout และ ES256 JWT signer สำหรับ merchant-admin แล้ว (#177/#182) ใช้
+`JWT_ISSUER`/`JWT_AUDIENCE` ร่วมกับตัวตรวจ JWT ของ redeem ข้างต้น
 
 ## ติดตั้ง
 
@@ -40,7 +42,7 @@ curl http://127.0.0.1:3000/readyz
 
 OpenAPI/Swagger: `http://127.0.0.1:3000/docs` และ `/openapi.json`
 `/healthz` วัด process liveness; `/readyz` ทดสอบ database connection จริง แต่ไม่รับรองว่า
-deployment, worker, indexer หรือ catalog พร้อมใช้งาน
+deployment, worker, indexer, catalog หรือ JWT signer พร้อมใช้งาน
 
 ## Config แยก process
 
@@ -50,7 +52,7 @@ deployment, worker, indexer หรือ catalog พร้อมใช้งา�
 | ไฟล์ | ตัวแปร |
 | --- | --- |
 | `.env` | `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL` |
-| `.env.api` | `HOST`, `PORT`, `COUPON_TYPES_ENABLED`, `MOCK_AUTH_ENABLED`, `MOCK_AUTH_TOKEN`, `MOCK_AUTH_USER_ID`, `MOCK_AUTH_WALLET_ADDRESS` |
+| `.env.api` | `HOST`, `PORT`, `COUPON_TYPES_ENABLED`, `MOCK_AUTH_ENABLED`, `MOCK_AUTH_TOKEN`, `MOCK_AUTH_USER_ID`, `MOCK_AUTH_WALLET_ADDRESS`, `LOGIN_IP_LIMIT`, `LOGIN_IP_WINDOW_SECONDS`, `JWT_PRIVATE_KEY_FILE`, `JWT_PUBLIC_KEY_FILE`, `JWT_ISSUER`, `JWT_AUDIENCE` |
 | `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION` |
 | `.env.indexer` | `RPC_URL`, `CHAIN_ID`, `FINALITY_DEPTH` |
 
@@ -185,6 +187,27 @@ Postman folder `Local mock` ใช้กับ mock API ในเครื่อ
 Script เปิด HTTP servers บน loopback สำหรับแต่ละ folder และส่ง token ของ fixture ให้ Newman
 ผลเหล่านี้ไม่ยืนยัน token expiry, wallet ownership, DB commit, idempotency, rate policy หรือ chain จริง
 
+## Merchant login
+
+`POST /v1/auth/login` รับเฉพาะ email/password ตรวจ Argon2id และบันทึก session/attempt/lockout
+อีเมลไม่มีในระบบ, รหัสผิด และ admin ถูกปิดใช้ ตอบ `401 INVALID_CREDENTIALS` ด้วยข้อความเดียวกัน
+ผิดครบ 5 ครั้งใน 15 นาทีจะล็อกบัญชี และมี rate limit ต่อ peer IP ค่าเริ่มต้น 20 คำขอใน 60 วินาที
+
+API เซ็น JWT จริงด้วย ES256 เมื่อกำหนด `JWT_PRIVATE_KEY_FILE`, `JWT_ISSUER` และ `JWT_AUDIENCE` ครบ
+อ่าน PEM จากไฟล์ที่ mount ผ่านระบบ secrets ตอนเริ่ม process และเผยแพร่ public key ที่ `/.well-known/jwks.json`
+ถ้าไม่ตั้งค่าทั้งสามใน development/test จะตอบ `503 AUTH_UNAVAILABLE` โดยไม่สร้าง session หรือ cookie ค้าง
+Production บังคับให้ตั้งค่า signer ครบและใช้ HTTPS issuer ส่วน refresh token ส่งผ่าน Secure/HttpOnly cookie
+และเก็บใน DB เฉพาะ SHA-256 อ่านรายละเอียดใน [JWT signing](docs/jwt-signing.md)
+การ login ไม่ได้ยืนยัน wallet ownership หรือสิทธิ์ signer บน chain
+
+อ่าน [ขอบเขต login และผลตรวจ](docs/auth-login.md), [OpenAPI](docs/api/login.openapi.json)
+และ [Postman collection](postman/login.postman_collection.json)
+
+```bash
+.venv/bin/python scripts/verify_login_api.py
+# ใช้ --export เมื่อตั้งใจ regenerate API artifacts
+```
+
 ## PostgreSQL สำหรับ local development
 
 เมื่อ Docker daemon ทำงาน:
@@ -198,6 +221,8 @@ export DATABASE_URL='postgresql+psycopg://reward:local-development-only@127.0.0.
 
 Compose เปิด port เฉพาะ loopback และใช้ credential สำหรับ local เท่านั้น
 อย่าใช้คำสั่ง migrations นี้กับฐานข้อมูล production หรือ schema เก่าที่มีข้อมูลโดยยังไม่ review
+ชุดตรวจ auth/migration ผ่าน PostgreSQL 17.11 แล้ว รวม Postman ผ่าน HTTP จริง
+ดูคำสั่งสร้างฐานข้อมูลทดสอบแยกและรันซ้ำใน [merchant login](docs/auth-login.md#repeatable-checks)
 
 ## ตรวจคุณภาพ
 
@@ -225,9 +250,9 @@ uint256 precision, config precedence, role secrets, redacted logs, rollback แ�
 
 ใช้ **`src/` Layout + Hybrid Feature-based** โดยแยก feature ก่อน แล้วแบ่ง
 `domain`, `application`, `infrastructure` และ `presentation` ภายในแต่ละ feature
-`listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` มีทั้ง coupon-type draft API
-(CRUD ในฐานข้อมูล ปิดด้วยค่าเริ่มต้น) และ route, DTO, use case สำหรับ redeem admission
-โดย redeem ยังไม่มี production adapters
+`listings` มี implementation สำหรับอ่านรายการขาย, `auth` ดูแล login/session/lockout
+ส่วน `coupons` มีทั้ง coupon-type draft API (CRUD ในฐานข้อมูล ปิดด้วยค่าเริ่มต้น) และ route, DTO,
+use case สำหรับ redeem admission โดย redeem ยังไม่มี production adapters
 
 ```text
 blockchain-reward-platform-be/
@@ -241,7 +266,8 @@ blockchain-reward-platform-be/
 │   ├── conftest.py                  # Fixtures กลาง
 │   ├── unit/                        # Config, logging และ contract reference
 │   └── integration/
-│       ├── coupons/                  # HTTP ของ redeem โดยใช้ adapters จำลอง
+│       ├── auth/                     # Login, concurrency และ session constraints
+│       ├── coupons/                  # HTTP ของ coupon-type draft และ redeem (adapters จำลอง)
 │       ├── listings/                 # HTTP และ database ของ listings
 │       ├── test_migrations.py
 │       └── test_processes.py
@@ -277,6 +303,11 @@ blockchain-reward-platform-be/
         │   ├── application/
         │   ├── infrastructure/
         │   └── presentation/
+        ├── auth/                    # Merchant login, session และ lockout
+        │   ├── domain/
+        │   ├── application/         # Login use case และ TokenSigner port
+        │   ├── infrastructure/      # Argon2id, SQL models และ repository
+        │   └── presentation/        # Login route และ HTTP schemas
         └── infrastructure/          # ของส่วนกลางที่ features ใช้ร่วมกัน
             ├── database.py          # Connection และ session
             └── blockchain/
@@ -309,7 +340,8 @@ Dependency ชี้เข้าหาชั้นใน: `presentation → appl
 Import Linter ตรวจขอบเขตทั้ง 6 ข้อผ่าน `make check`
 กฎ escrow และ settlement ยังคงอยู่ใน smart contract
 
-`main.py` register ทั้ง coupon-type draft router (เมื่อ `COUPON_TYPES_ENABLED=true`) และ redeem router
+`main.py` register ทั้ง coupon-type draft router (เมื่อ `COUPON_TYPES_ENABLED=true`), redeem router
+และ auth router (login + JWKS)
 `coupons/infrastructure/repository.py` เก็บ draft กับ idempotency key ของมันเองในฐานข้อมูล แยกจาก
 `infrastructure/mock_auth.py` ที่มี mock token adapter และ `infrastructure/jwt_auth.py` ที่ตรวจ
 access token ES256 สำหรับ AC2 ส่วน mint และ wallet/deployment adapters ของ redeem ยังไม่มี implementation

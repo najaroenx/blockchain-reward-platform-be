@@ -1,5 +1,6 @@
 from alembic import context
 
+from marketplace.auth.infrastructure import models as auth_models  # noqa: F401
 from marketplace.coupons.infrastructure import models as coupon_models  # noqa: F401
 from marketplace.infrastructure import operation_models  # noqa: F401
 from marketplace.infrastructure.database import Base, Database

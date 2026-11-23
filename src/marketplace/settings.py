@@ -2,6 +2,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, Self, overload
+from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 from pydantic import (
@@ -19,6 +20,7 @@ from sqlalchemy.exc import ArgumentError
 
 Role = Literal["api", "worker", "indexer"]
 KMS_FIELDS = ("KMS_KEY_ARN", "KMS_REGION")
+JWT_FIELDS = ("JWT_PRIVATE_KEY_FILE", "JWT_ISSUER", "JWT_AUDIENCE")
 
 
 class ConfigurationError(ValueError):
@@ -50,6 +52,44 @@ class SharedSettings(BaseModel):
         return value
 
 
+class JwtSigningSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    private_key_file: SecretStr
+    issuer: str = Field(min_length=1, max_length=2048)
+    audience: str = Field(min_length=1, max_length=256)
+
+    @field_validator("private_key_file")
+    @classmethod
+    def absolute_key_path(cls, value: SecretStr) -> SecretStr:
+        if not Path(value.get_secret_value()).is_absolute():
+            raise ValueError("requires an absolute secret-file path")
+        return value
+
+    @field_validator("issuer")
+    @classmethod
+    def valid_issuer(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"https", "http"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or any(character.isspace() for character in value)
+        ):
+            raise ValueError("requires an HTTP(S) issuer without credentials, query or fragment")
+        return value
+
+    @field_validator("audience")
+    @classmethod
+    def valid_audience(cls, value: str) -> str:
+        if any(character.isspace() for character in value):
+            raise ValueError("audience must not contain whitespace")
+        return value
+
+
 class ApiSettings(SharedSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=3000, ge=1, le=65535)
@@ -61,20 +101,43 @@ class ApiSettings(SharedSettings):
     mock_auth_token: SecretStr = Field(default=SecretStr("mock-redeem-token"), min_length=1)
     mock_auth_user_id: str = Field(default="mock-user", min_length=1)
     mock_auth_wallet_address: str = Field(default="0x" + "a" * 40, pattern=r"^0x[0-9a-fA-F]{40}$")
+    # Verifies redeem's incoming access tokens (BE-0608). Shares JWT_ISSUER/JWT_AUDIENCE
+    # with jwt_signing below, which mints them (#182) -- same issuer identity, different
+    # (public vs private) key.
     jwt_public_key_file: Path | None = None
     jwt_issuer: str | None = Field(default=None, min_length=1)
     jwt_audience: str | None = Field(default=None, min_length=1)
+    login_ip_limit: int = Field(default=20, ge=1)
+    login_ip_window_seconds: int = Field(default=60, ge=1)
+    jwt_signing: JwtSigningSettings | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def collect_jwt_settings(cls, values: object) -> object:
+        if not isinstance(values, dict) or "jwt_private_key_file" not in values:
+            return values
+        result = dict(values)
+        if result.get("jwt_signing") is not None:
+            raise ValueError("configure JWT signing once")
+        # issuer/audience are read, not popped: redeem's flat jwt_issuer/jwt_audience
+        # fields above consume the same JWT_ISSUER/JWT_AUDIENCE input.
+        result["jwt_signing"] = {
+            "private_key_file": result.pop("jwt_private_key_file"),
+            "issuer": result.get("jwt_issuer"),
+            "audience": result.get("jwt_audience"),
+        }
+        return result
 
     @model_validator(mode="after")
     def jwt_verification_configuration(self) -> Self:
-        configured = (
-            self.jwt_public_key_file is not None,
-            self.jwt_issuer is not None,
-            self.jwt_audience is not None,
-        )
-        if any(configured) and not all(configured):
+        # jwt_public_key_file is the sole trigger, not "any of the three fields set":
+        # jwt_issuer/jwt_audience are shared with jwt_signing above, so a signing-only
+        # setup legitimately has them set without a public key file.
+        if self.jwt_public_key_file is None:
+            return self
+        if self.jwt_issuer is None or self.jwt_audience is None:
             raise ValueError("JWT verification requires public key file, issuer, and audience")
-        if any(configured) and self.mock_auth_enabled:
+        if self.mock_auth_enabled:
             raise ValueError("JWT verification and mock authentication cannot be enabled together")
         return self
 
@@ -93,8 +156,6 @@ class ChainSettings(SharedSettings):
     @field_validator("rpc_url")
     @classmethod
     def valid_rpc(cls, value: SecretStr) -> SecretStr:
-        from urllib.parse import urlsplit
-
         parsed = urlsplit(value.get_secret_value())
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             raise ValueError("must be an HTTP(S) RPC URL")
@@ -158,6 +219,10 @@ def load_settings(
             raise ConfigurationError(
                 f"{role}: worker-only variables present: {', '.join(forbidden)}"
             )
+    if role != "api":
+        forbidden = [key for key in JWT_FIELDS if key in values]
+        if forbidden:
+            raise ConfigurationError(f"{role}: api-only variables present: {', '.join(forbidden)}")
     schemas: dict[Role, type[ApiSettings] | type[WorkerSettings] | type[IndexerSettings]] = {
         "api": ApiSettings,
         "worker": WorkerSettings,
@@ -179,6 +244,11 @@ def load_settings(
         and make_url(settings.database_url.get_secret_value()).get_backend_name() != "postgresql"
     ):
         raise ConfigurationError(f"{role}: production requires PostgreSQL")
+    if isinstance(settings, ApiSettings) and settings.environment == "production":
+        if settings.jwt_signing is None:
+            raise ConfigurationError("api: production requires JWT signing configuration")
+        if not settings.jwt_signing.issuer.startswith("https://"):
+            raise ConfigurationError("api: production JWT issuer requires HTTPS")
     return settings
 
 

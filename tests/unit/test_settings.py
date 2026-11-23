@@ -188,7 +188,7 @@ def test_jwt_verification_configuration_loads_from_api_environment(tmp_path: Pat
     assert settings.jwt_audience == "reward-api"
 
 
-@pytest.mark.parametrize("missing", ["jwt_public_key_file", "jwt_issuer", "jwt_audience"])
+@pytest.mark.parametrize("missing", ["jwt_issuer", "jwt_audience"])
 def test_partial_jwt_verification_configuration_is_rejected(missing: str) -> None:
     values = {
         "jwt_public_key_file": "/run/config/public.pem",
@@ -200,6 +200,18 @@ def test_partial_jwt_verification_configuration_is_rejected(missing: str) -> Non
         ApiSettings.model_validate({"database_url": "sqlite:///:memory:", **values})
 
 
+def test_issuer_and_audience_alone_are_not_a_verification_attempt() -> None:
+    # jwt_issuer/jwt_audience are shared with jwt_signing (BE-0306): without a public
+    # key file, having them set is not itself a partial verification config -- it may
+    # just be a signing-only deployment. jwt_public_key_file is the sole trigger.
+    settings = ApiSettings(
+        database_url="sqlite:///:memory:",
+        jwt_issuer="https://auth.example.test",
+        jwt_audience="reward-api",
+    )
+    assert settings.jwt_public_key_file is None
+
+
 def test_mock_auth_cannot_override_configured_jwt_verification() -> None:
     with pytest.raises(ValidationError, match="cannot be enabled together"):
         ApiSettings(
@@ -209,3 +221,71 @@ def test_mock_auth_cannot_override_configured_jwt_verification() -> None:
             jwt_issuer="https://auth.example.test",
             jwt_audience="reward-api",
         )
+
+
+def jwt_values() -> dict[str, str]:
+    return {
+        "DATABASE_URL": "postgresql+psycopg://user:password@localhost/reward",
+        "JWT_PRIVATE_KEY_FILE": "/run/secrets/SECRET-key.pem",
+        "JWT_ISSUER": "https://auth.example.test",
+        "JWT_AUDIENCE": "reward-api",
+    }
+
+
+def test_jwt_settings_are_parsed_as_one_config_and_hide_secret_path(tmp_path: Path) -> None:
+    config = load_settings("api", root=tmp_path, environ=jwt_values())
+    assert config.jwt_signing.issuer == "https://auth.example.test"
+    assert config.jwt_signing.audience == "reward-api"
+    assert "SECRET-key" not in repr(config)
+
+
+@pytest.mark.parametrize("missing", ["JWT_ISSUER", "JWT_AUDIENCE"])
+def test_partial_jwt_configuration_is_rejected(tmp_path: Path, missing: str) -> None:
+    # JWT_PRIVATE_KEY_FILE missing (issuer/audience alone) is deliberately not covered
+    # here: see test_issuer_and_audience_alone_are_not_a_verification_attempt -- without
+    # either key file, nothing is activated, so it is inert rather than an error.
+    values = jwt_values()
+    del values[missing]
+    with pytest.raises(ConfigurationError) as result:
+        load_settings("api", root=tmp_path, environ=values)
+    assert "SECRET-key" not in str(result.value)
+
+
+@pytest.mark.parametrize("role", ["worker", "indexer"])
+def test_jwt_key_config_cannot_leak_into_other_roles(tmp_path: Path, role: str) -> None:
+    with pytest.raises(ConfigurationError, match="api-only variables"):
+        load_settings(role, root=tmp_path, environ=jwt_values())
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("JWT_PRIVATE_KEY_FILE", "relative/SECRET.pem"),
+        ("JWT_ISSUER", "https://user:SECRET@auth.example.test"),
+        ("JWT_ISSUER", "https://auth.example.test?key=SECRET"),
+        ("JWT_ISSUER", "not-an-issuer"),
+        ("JWT_AUDIENCE", ""),
+        ("JWT_AUDIENCE", "bad audience"),
+    ],
+)
+def test_invalid_jwt_config_is_rejected_without_input_echo(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    values = {**jwt_values(), field: value}
+    with pytest.raises(ConfigurationError) as result:
+        load_settings("api", root=tmp_path, environ=values)
+    assert "SECRET" not in str(result.value)
+
+
+def test_production_requires_signing_and_https_issuer(tmp_path: Path) -> None:
+    with pytest.raises(ConfigurationError, match="requires JWT signing"):
+        load_settings(
+            "api",
+            root=tmp_path,
+            environ={"APP_ENV": "production", "DATABASE_URL": jwt_values()["DATABASE_URL"]},
+        )
+    values = {**jwt_values(), "APP_ENV": "production", "JWT_ISSUER": "http://auth.example.test"}
+    with pytest.raises(ConfigurationError, match="requires HTTPS"):
+        load_settings("api", root=tmp_path, environ=values)
+    values["JWT_ISSUER"] = "https://auth.example.test"
+    assert load_settings("api", root=tmp_path, environ=values).jwt_signing is not None

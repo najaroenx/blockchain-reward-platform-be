@@ -3,8 +3,7 @@ from sqlite3 import Connection as SqliteConnection
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-from sqlalchemy.pool.base import ConnectionPoolEntry
+from sqlalchemy.pool import ConnectionPoolEntry, StaticPool
 
 
 class Base(DeclarativeBase):

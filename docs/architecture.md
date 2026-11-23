@@ -1,9 +1,11 @@
 # Python backend architecture
 
 Status: Python foundation, read-only catalog, coupon-type draft persistence (behind
-`COUPON_TYPES_ENABLED`, default off), and redeem route and use case implemented.
-Redeem admission has no production adapters and rejects work by default.
-Live chain integration is not enabled.
+`COUPON_TYPES_ENABLED`, default off), redeem route and use case, and merchant
+login/session/lockout implemented. Redeem admission has no production adapters and
+rejects work by default. JWT signing uses an ES256 adapter behind the TokenSigner port
+(#182) and the same issuer/audience are verified by redeem. Live chain integration is
+not enabled.
 
 ## Existing behavior and migration scope
 
@@ -59,6 +61,14 @@ src/marketplace/
                                     and the redeem route with injected dependencies
     presentation/errors.py         centralized error status, message, headers, and OpenAPI examples
     presentation/schemas.py        draft and redeem HTTP validation/response models
+  auth/
+    domain/entities.py             login policy and identity/session values
+    application/use_cases.py       credential verification and login coordination
+    application/ports.py           LoginStore, PasswordVerifier, TokenSigner
+    infrastructure/models.py       seven FEAT-03 foundation tables
+    infrastructure/repository.py   rate reservations, lockout, atomic sessions
+    infrastructure/passwords.py    Argon2id and equivalent-cost dummy verification
+    presentation/router.py         login route and secure refresh cookie
   infrastructure/
     database.py                    shared engine and request-scoped sessions
     blockchain/abi/                pinned reference, not a deployment binding
@@ -175,15 +185,36 @@ The latter injects test adapters. Its 202 and error responses do not prove durab
 authentication policy, idempotency, rate limiting, or chain results.
 The [redeem API reference](api/redeem.md) lists public errors and artifact commands.
 
-Import Linter covers both listings and coupons with six dependency rules: domain independence, application independence,
+Import Linter covers listings, coupons, and auth with six dependency rules: domain independence, application independence,
 presentation isolation from persistence, feature infrastructure isolation from HTTP, settings/logging
 independence from features, and shared infrastructure independence from features. Domain and
 application do not depend on FastAPI, Pydantic, or SQLAlchemy.
 
 ## Responsibilities
 
+The auth feature owns merchant login, session storage, and lockout. `main.py` wires a SQL repository
+and password verifier into `Login`. The configured signer loads a mounted P-256 private PEM at
+startup and publishes its public JWK at `/.well-known/jwks.json`. Development/test without signer
+configuration fails with AUTH_UNAVAILABLE and creates no session. Production requires complete
+signer configuration. No mock signer is used by the normal API entry point.
+
+Migration `0006_auth_login` adds the FEAT-03 identity/session foundation because the Python base
+did not contain those tables. It does not execute the archived SQL. Customer OTP, merchant
+onboarding, refresh/logout routes, JWT key rotation, and shared-schema reconciliation retain
+their separate owners. See [merchant login](auth-login.md) for source discrepancies and acceptance evidence.
+
+Rate reservations commit hashed PENDING attempts before password work and signing. Success then
+commits the session, completed attempt, last-login update, and auth event atomically. Signing runs
+outside the transaction; failures create no session. The repository rechecks account credentials
+and identity bindings before commit. Countable-failure flags reset under the identifier lock,
+preserving audit history without relying on timestamps to order a reset.
+
+Auth PostgreSQL writes use READ COMMITTED with transaction advisory locks for IP and identifier
+scopes. Local SQLite writes use BEGIN IMMEDIATE and enforce foreign keys. The server ignores
+forwarded headers by default; proxy trust remains a deployment decision.
+
 Contracts own trading authorization on chain, balances, escrow, coupon burns, and settlement.
-The backend will own user authentication, proving wallet ownership, request idempotency, transaction
+The backend implements merchant login and will own wallet proof, request idempotency, transaction
 tracking, and projections after those policies are selected. Backend login alone does not authorize
 acting as a wallet. Changing the RPC transaction's signer changes `msg.sender` in the contract.
 
@@ -219,7 +250,7 @@ Tests use [Starlette's supported HTTPX2 test client](https://www.starlette.io/te
 | --- | --- |
 | Intended deployment | Confirm chain ID, RPC, deployment block, Coupon/Vault/THB/proxy addresses, implementation address, and implementation revision/runtime code. The vendored ABI commit is only a candidate. |
 | Wallet custody and signing | Decide user-signed transactions versus worker custody/KMS, how users prove wallet ownership, and which operations may use `redeemFrom`. |
-| Authentication | Connect the #177/#182 login and signer stack, define wallet-to-user authorization and revocation policy. Redeem verifies ES256 access tokens; login/session implementations live on their issue branches. |
+| Authentication | Merchant login/session/lockout and ES256 JWT signing/verification (#177/#182) are implemented and share one issuer/audience. Still needed: provisioning the mounted PEM through deployment secrets, key rotation (#184), customer OTP, account roles, revocation APIs, and wallet-to-user authorization. |
 | Points | Confirm the deployed ERC-20 addresses and precision. Contract source accepts ERC-20 payments, not a backend-only points balance or native ETH. |
 | Queue and operations | Select queue/storage, retries, idempotency scope, nonce ownership, replacement policy, and receipt/finality tracking before implementing a transaction worker. |
 | Indexing and reorgs | Select start block, finality policy, replay/reorg rollback, checkpoint ownership, and deployment-upgrade handling before enabling a projection writer. |
