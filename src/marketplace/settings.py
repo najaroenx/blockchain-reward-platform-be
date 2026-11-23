@@ -1,10 +1,19 @@
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal, overload
+from typing import Literal, Self, overload
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 

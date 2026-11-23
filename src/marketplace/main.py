@@ -38,6 +38,25 @@ def create_app(
 ) -> FastAPI:
     config = settings if settings is not None else load_settings("api")
     logger = configure_logging("api", config.log_level)
+    if redeem is None and config.mock_auth_enabled:
+        redeem = RedeemDependencies(
+            authenticate=MockTokenAuthenticator(
+                config.mock_auth_token.get_secret_value(),
+                AuthenticatedWallet(
+                    user_id=config.mock_auth_user_id,
+                    wallet_address=config.mock_auth_wallet_address,
+                ),
+            )
+        )
+    elif redeem is None and config.jwt_public_key_file is not None:
+        assert config.jwt_issuer is not None and config.jwt_audience is not None
+        redeem = RedeemDependencies(
+            authenticate=JwtWalletAuthenticator(
+                config.jwt_public_key_file,
+                issuer=config.jwt_issuer,
+                audience=config.jwt_audience,
+            )
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

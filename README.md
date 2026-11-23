@@ -170,8 +170,10 @@ blockchain-reward-platform-be/
         ├── main.py                  # ประกอบแอปและ dependencies ของ features
         ├── settings.py              # Config แยกตาม process
         ├── logging_config.py        # JSON logs และปิดข้อมูลลับ
-        ├── worker.py                # ตอนนี้ตรวจ config เท่านั้น
-        ├── indexer.py               # ตอนนี้ตรวจ config เท่านั้น
+        ├── worker/                  # Service กลางสำหรับส่งธุรกรรม
+        │   └── main.py              # ตอนนี้ตรวจ config เท่านั้น
+        ├── indexer/                 # Service กลางสำหรับอ่าน chain
+        │   └── main.py              # ตอนนี้ตรวจ config เท่านั้น
         ├── listings/
         │   ├── domain/
         │   │   └── entities.py      # Listing และ Marketplace
@@ -186,7 +188,7 @@ blockchain-reward-platform-be/
         │   └── presentation/
         │       ├── router.py        # HTTP endpoints ของ listings
         │       └── schemas.py       # Request/response models
-        ├── coupons/                 # โครงสร้างเท่านั้น ยังไม่มี use case หรือ endpoint
+        ├── coupons/                 # Redeem admission; production adapters ยังไม่พร้อม
         │   ├── domain/
         │   ├── application/
         │   ├── infrastructure/
@@ -229,8 +231,9 @@ Import Linter ตรวจขอบเขตทั้ง 6 ข้อผ่าน
 กฎ escrow และ settlement ยังคงอยู่ใน smart contract
 
 แต่ละ layer ของ `coupons/` มี `__init__.py` เพื่อเก็บโครงสร้างเป็น Python package
-ยังไม่มี API สร้างคูปองหรือ mint และยังไม่ได้ register router ของ coupons ใน `main.py`
-เพิ่ม implementation ภายใน feature นั้นเมื่อกำหนด use case และ authorization แล้ว
+`main.py` register redeem router แล้ว และ `coupons/infrastructure/mock_auth.py` มี mock token adapter
+ส่วน `coupons/infrastructure/jwt_auth.py` ตรวจ access token ES256 สำหรับ AC2
+ส่วน API สร้างคูปอง, mint และ wallet/deployment adapters ยังไม่มี implementation
 
 ## สิ่งที่ยังต้องตัดสินใจ
 
