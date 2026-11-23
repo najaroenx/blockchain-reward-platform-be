@@ -17,6 +17,7 @@ for command in (
     [str(BIN / "python"), "scripts/verify_deposit_api.py"],
     [str(BIN / "python"), "scripts/verify_operations_api.py"],
     [str(BIN / "python"), "scripts/verify_merchants_api.py"],
+    [str(BIN / "python"), "scripts/verify_point_types_api.py"],
     [str(BIN / "pytest"), "--cov=marketplace", "--cov-report=term-missing"],
 ):
     print("Running:", " ".join(command), flush=True)
