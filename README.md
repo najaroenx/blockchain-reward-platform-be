@@ -1,121 +1,217 @@
-# Blockchain Reward Platform
+# Blockchain Reward Platform — Python backend
 
-Backend monorepo สำหรับระบบแต้มสะสมและตลาดคูปองบน EVM แบ่งเป็น 3 process: HTTP API, worker และ indexer ใช้ TypeScript, NestJS, pnpm workspace และ PostgreSQL connection string
+Backend สำหรับ coupon marketplace บน EVM ใช้ Python 3.12, FastAPI, Pydantic,
+SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ Hybrid Feature-based
+แยก feature ก่อน แล้วแบ่ง layers ภายใน และรันเป็น modular monolith
 
-> สถานะปัจจุบัน: API มี `GET /healthz`; worker และ indexer เริ่ม process และตรวจ config ได้แล้ว แต่ยังไม่มีการเชื่อมต่อ queue, KMS, database หรืออ่านธุรกรรมจาก chain จริง
+สถานะ: API, config แยก process, logging, database migrations และ catalog สำหรับอ่าน projection
+ใช้งานได้ ส่วน worker/indexer มีคำสั่งตรวจ config แต่ **ยังไม่ส่งธุรกรรมหรืออ่าน chain จริง**
+ระบบเดิมก็ยังไม่มีส่วนประมวลผลเหล่านั้น ไม่มี purchase/redeem endpoint เปิดไว้ในรอบนี้
 
-## สิ่งที่ต้องมี
+## ติดตั้ง
 
-- Node.js `>=22.13`
-- pnpm `>=10`
-- PostgreSQL และ EVM RPC ยังไม่จำเป็นสำหรับการบูต process ปัจจุบัน เพราะระบบตรวจรูปแบบ URL แต่ยังไม่ได้เชื่อมต่อบริการจริง
-
-ตรวจเวอร์ชัน:
-
-```bash
-node --version
-pnpm --version
-```
-
-## ติดตั้งและตั้งค่า
+ต้องมี Python 3.12 หรือ 3.13 ไม่ต้องติดตั้ง Node.js, pnpm หรือ uv แบบ global
 
 ```bash
-pnpm install
-pnpm env:init
+python3.12 scripts/bootstrap.py
+.venv/bin/reward-env-init
+.venv/bin/alembic upgrade head
+.venv/bin/reward-api
 ```
 
-`pnpm env:init` จะคัดลอกไฟล์ `*.example` ที่มีอยู่ โดยไม่เขียนทับไฟล์เดิม ขณะนี้ repository มี `.env.example` เพียงไฟล์เดียว จึงสร้าง `.env` ให้เท่านั้น ให้จัดค่าลงไฟล์ตาม role ด้านล่าง และสร้าง `.env.api`, `.env.worker` กับ `.env.indexer` เอง
+ตัวติดตั้งสร้าง `.tools/uv` สำหรับเครื่องมือติดตั้ง และ `.venv` สำหรับ dependencies ของระบบ
+จาก `uv.lock` โดยไม่แก้ global Python packages ตัวสร้าง env ไม่ทับไฟล์เดิม
+ใช้ `python3.12 scripts/bootstrap.py --lock` เฉพาะเมื่อตั้งใจเปลี่ยน dependency resolution
 
-| ไฟล์ | ตัวแปร | ตัวอย่าง/ค่าเริ่มต้น |
-|---|---|---|
-| `.env` | `DATABASE_URL` | `postgresql://postgres:dev@localhost:5432/reward` |
-| `.env` | `LOG_LEVEL` | `debug` (ค่าเริ่มต้น `info`) |
-| `.env.api` | `PORT` | `3000` (ค่าเริ่มต้น `3000`) |
-| `.env.worker` | `RPC_URL`, `CHAIN_ID` | `http://localhost:8545`, `31337` |
-| `.env.worker` | `KMS_KEY_ARN`, `KMS_REGION` | ใช้ ARN และ region ของ KMS ที่ต้องการ |
-| `.env.indexer` | `RPC_URL`, `CHAIN_ID` | `http://localhost:8545`, `31337` |
-| `.env.indexer` | `FINALITY_DEPTH` | `12` |
-
-ตัวอย่างรูปแบบไฟล์:
-
-```dotenv
-# .env
-DATABASE_URL=postgresql://postgres:dev@localhost:5432/reward
-LOG_LEVEL=debug
-```
-
-```dotenv
-# .env.api
-PORT=3000
-```
-
-```dotenv
-# .env.worker
-RPC_URL=http://localhost:8545
-CHAIN_ID=31337
-KMS_KEY_ARN=arn:aws:kms:ap-southeast-1:000000000000:key/dev
-KMS_REGION=ap-southeast-1
-```
-
-```dotenv
-# .env.indexer
-RPC_URL=http://localhost:8545
-CHAIN_ID=31337
-FINALITY_DEPTH=12
-```
-
-ค่า ARN ด้านบนเป็นเพียงตัวอย่าง อย่าใส่ credential จริงลง Git และอย่าใส่ `KMS_KEY_ARN` หรือ `KMS_REGION` ใน `.env` หรือ environment ที่แชร์กับ API เพราะ API จะปฏิเสธการเริ่มทำงาน ไฟล์ `.env*` ที่เป็นค่าท้องถิ่นถูก ignore โดย Git ยกเว้น `.env.example`
-
-แต่ละ process โหลด `.env` ก่อน แล้วโหลด `.env.<role>`; ตัวแปรที่กำหนดใน shell หรือ CI มีลำดับความสำคัญสูงกว่าไฟล์ ตรวจ environment ตอนเริ่ม process และหยุดทันทีเมื่อค่าขาดหรือผิดรูปแบบ
-
-## เริ่มใช้งาน
-
-รันทั้งสาม process พร้อมกัน:
+ค่าเริ่มต้นใช้ SQLite `reward.db` สำหรับทดลองในเครื่อง จึงบูตได้โดยไม่ต้องมี Docker
+Production บังคับ PostgreSQL; ห้ามนำ SQLite มาใช้แทน production database
 
 ```bash
-pnpm dev
+curl http://127.0.0.1:3000/healthz
+# {"ok":true,"role":"api"}
+curl http://127.0.0.1:3000/readyz
+# {"ok":true,"database":"ready"}
 ```
 
-หรือรันแยก:
+OpenAPI/Swagger: `http://127.0.0.1:3000/docs` และ `/openapi.json`
+`/healthz` วัด process liveness; `/readyz` ทดสอบ database connection จริง แต่ไม่รับรองว่า
+deployment, worker, indexer หรือ catalog พร้อมใช้งาน
+
+## Config แยก process
+
+โหลด `.env` → `.env.<role>` → environment จาก shell/CI โดยค่าด้านหลังมีลำดับสูงกว่า
+การโหลดไม่เปลี่ยน environment กลาง และไม่อ่านไฟล์ของ role อื่น
+
+| ไฟล์ | ตัวแปร |
+| --- | --- |
+| `.env` | `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL` |
+| `.env.api` | `HOST`, `PORT` |
+| `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION` |
+| `.env.indexer` | `RPC_URL`, `CHAIN_ID`, `FINALITY_DEPTH` |
+
+API และ indexer ปฏิเสธ KMS variables ทั้งจากไฟล์ shared และ environment ที่ส่งเข้ามา
+ค่า RPC, chain ID และ KMS ในตัวอย่างเป็น format examples ไม่ใช่ deployment ที่ยืนยันแล้ว
 
 ```bash
-pnpm dev:api
-pnpm dev:worker
-pnpm dev:indexer
+.venv/bin/reward-worker --check
+.venv/bin/reward-indexer --check
 ```
 
-API พร้อมใช้งานที่ `http://localhost:3000`. ตรวจสุขภาพด้วย:
+สองคำสั่งนี้ตรวจ config เท่านั้น ไม่ได้ตรวจว่า RPC/KMS ติดต่อได้จริง ไม่เชื่อม queue
+และไม่สร้างข้อมูล projection ถ้ารันโดยไม่มี `--check` จะหยุดพร้อมอธิบายสิ่งที่ยังไม่ได้เปิดใช้
+
+## Catalog API ที่มีในรอบนี้
+
+```text
+GET /api/v1/marketplaces/{chain_id}/{marketplace_address}/listings?limit=25&offset=0
+GET /api/v1/marketplaces/{chain_id}/{marketplace_address}/listings/{listing_id}
+```
+
+อ่าน projection ของ chain และ marketplace ที่ระบุเท่านั้น ไม่เรียก smart contract และไม่คำนวณ
+escrow ซ้ำใน backend รายการแบบ list แสดงเฉพาะ active listings, detail อ่านรายการที่ inactive ได้
+จำนวนและราคา uint256 ส่งเป็น decimal strings เพื่อไม่สูญเสีย precision; ราคาเป็นหน่วยย่อยของ token
+และยังไม่ได้หารด้วย token decimals
+
+ถ้าไม่มี checkpoint จาก indexer จะตอบ `503 projection_unavailable` แทน empty catalog
+หากมี checkpoint แต่ไม่พบ listing จะตอบ `404 listing_not_found` ทุกผลมี `indexed_block`
+เพื่อบอกระดับข้อมูลที่อ่าน API ไม่มี endpoint สำหรับเติม listing ปลอม
+หลังติดตั้งใหม่ catalog จึงยังตอบ 503 จนกว่าจะมี indexer ที่ยืนยัน deployment และสร้าง projection
+
+Catalog reads ปัจจุบันเป็น public และมีเฉพาะข้อมูล listing บน chain ไม่มี endpoint เขียนข้อมูล
+ส่วน auth, wallet authorization, idempotency และการส่งธุรกรรมยังต้องออกแบบตามการตัดสินใจด้านล่าง
+
+## PostgreSQL สำหรับ local development
+
+เมื่อ Docker daemon ทำงาน:
 
 ```bash
-curl http://localhost:3000/healthz
+docker compose up -d postgres
+export DATABASE_URL='postgresql+psycopg://reward:local-development-only@127.0.0.1:5432/reward'
+.venv/bin/alembic upgrade head
+.venv/bin/reward-api
 ```
 
-คาดว่าจะได้:
-
-```json
-{"ok":true,"role":"api"}
-```
-
-กด `Ctrl+C` เพื่อหยุด process
+Compose เปิด port เฉพาะ loopback และใช้ credential สำหรับ local เท่านั้น
+อย่าใช้คำสั่ง migrations นี้กับฐานข้อมูล production หรือ schema เก่าที่มีข้อมูลโดยยังไม่ review
 
 ## ตรวจคุณภาพ
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
+.venv/bin/python scripts/verify.py
+# หรือ make check
 ```
 
-## โครงสร้าง
+รัน Ruff, formatting, strict type checks, dependency-boundary checks และ pytest
+Tests ใช้ฐานข้อมูลชั่วคราวจริงและ migration จริง รวม HTTP, pagination, chain/address isolation,
+uint256 precision, config precedence, role secrets, redacted logs, rollback และ ABI reference
+
+ตรวจ reference กับ repo contract ที่อยู่ข้างกัน:
+
+```bash
+.venv/bin/python scripts/sync_contract_reference.py --check
+```
+
+คำสั่งนี้ไม่ attest deployed bytecode และไม่ส่งธุรกรรม ข้อมูล deployment ยัง unverified
+
+## Folder structure
+
+อ่าน [เปรียบเทียบ Layer-based กับ Hybrid Feature-based](docs/layer-based-vs-feature-based.md)
+สำหรับเหตุผลการจัดโครงสร้าง หน้าที่แต่ละ layer และหลักแยกส่วนกลาง
+
+ใช้ **`src/` Layout + Hybrid Feature-based** โดยแยก feature ก่อน แล้วแบ่ง
+`domain`, `application`, `infrastructure` และ `presentation` ภายในแต่ละ feature
+`listings` มี implementation สำหรับอ่านรายการขาย ส่วน `coupons` เป็นโครง package สำหรับเพิ่ม use cases ต่อไป
 
 ```text
-apps/api       NestJS HTTP API และ health check
-apps/worker    process สำหรับงาน background (ปัจจุบันยังเป็น placeholder)
-apps/indexer   process สำหรับอ่านข้อมูล chain (ปัจจุบันยังเป็น placeholder)
-libs/config    โหลด dotenv และตรวจ environment แยกตาม role
-libs/domain    types และ logic ของ domain ที่ใช้ร่วมกัน
-libs/logger    Pino logger พร้อม redact ข้อมูลสำคัญ
-test/          unit tests สำหรับ config และ logger
+blockchain-reward-platform-be/
+├── pyproject.toml                   # Dependencies และ tool configuration
+├── uv.lock                          # Dependency lockfile
+├── .env*.example                    # ตัวอย่าง environment แยก process
+├── alembic.ini                      # ตั้งค่า database migrations
+├── migrations/                      # Alembic migrations
+├── scripts/                         # ติดตั้งและตรวจระบบ
+├── tests/
+│   ├── conftest.py                  # Fixtures กลาง
+│   ├── unit/                        # Config, logging และ contract reference
+│   └── integration/
+│       ├── listings/                 # HTTP และ database ของ listings
+│       ├── test_migrations.py
+│       └── test_processes.py
+├── docs/                            # Architecture, ผลตรวจ และ SQL เก่า
+├── compose.yaml                     # PostgreSQL สำหรับ local
+├── Makefile                         # คำสั่ง install/run/check
+└── src/
+    └── marketplace/
+        ├── __init__.py
+        ├── main.py                  # ประกอบแอปและ dependencies ของ features
+        ├── settings.py              # Config แยกตาม process
+        ├── logging_config.py        # JSON logs และปิดข้อมูลลับ
+        ├── worker.py                # ตอนนี้ตรวจ config เท่านั้น
+        ├── indexer.py               # ตอนนี้ตรวจ config เท่านั้น
+        ├── listings/
+        │   ├── domain/
+        │   │   └── entities.py      # Listing และ Marketplace
+        │   ├── application/
+        │   │   ├── use_cases.py     # Catalog use cases
+        │   │   ├── ports.py         # Interface ของ repository
+        │   │   ├── dto.py           # ผลลัพธ์จาก use cases
+        │   │   └── exceptions.py    # ข้อผิดพลาดระดับ application
+        │   ├── infrastructure/
+        │   │   ├── models.py        # ORM models ของ listings
+        │   │   └── repository.py    # Query ฐานข้อมูลของ listings
+        │   └── presentation/
+        │       ├── router.py        # HTTP endpoints ของ listings
+        │       └── schemas.py       # Request/response models
+        ├── coupons/                 # โครงสร้างเท่านั้น ยังไม่มี use case หรือ endpoint
+        │   ├── domain/
+        │   ├── application/
+        │   ├── infrastructure/
+        │   └── presentation/
+        └── infrastructure/          # ของส่วนกลางที่ features ใช้ร่วมกัน
+            ├── database.py          # Connection และ session
+            └── blockchain/
+                └── abi/             # ABI และ contract reference manifest
 ```
 
-ห้าม import ข้ามโฟลเดอร์ `apps/`; โค้ดที่ใช้ร่วมกันควรอยู่ใน `libs/` เพื่อแยกขอบเขตของแต่ละ process
+| ชั้นภายใน feature | หน้าที่ |
+| --- | --- |
+| `domain` | ข้อมูลและกฎธุรกิจที่ backend เป็นเจ้าของ โดยไม่ผูกกับ framework |
+| `application` | Use cases, interfaces และผลลัพธ์ระดับ application |
+| `infrastructure` | ORM และ adapters ที่เป็นของ feature นั้น |
+| `presentation` | HTTP endpoints และ request/response validation |
+
+`listings/infrastructure/` เป็นเจ้าของตาราง projection และ queries ของ listings
+ส่วน `infrastructure/` ที่ระดับ package ดูแล connection และ reference assets ที่ใช้ร่วมกัน
+จึงไม่มีการ import listings กลับเข้ามาใน shared infrastructure
+
+ลำดับการทำงานของ request:
+
+```text
+HTTP → listings/presentation → listings/application → listings/infrastructure → database
+```
+
+`main.py` ประกอบ dependencies และส่ง repository ให้ use cases ผ่าน
+`listings/application/ports.py` แล้ว inject provider ให้ router
+คำสั่ง `reward-api` ชี้ไปที่ `marketplace.main:main` ใน `pyproject.toml`
+
+Dependency ชี้เข้าหาชั้นใน: `presentation → application → domain` ส่วน infrastructure
+ทำตาม ports โดย Domain และ Application ไม่ import FastAPI หรือ SQLAlchemy
+Import Linter ตรวจขอบเขตทั้ง 6 ข้อผ่าน `make check`
+กฎ escrow และ settlement ยังคงอยู่ใน smart contract
+
+แต่ละ layer ของ `coupons/` มี `__init__.py` เพื่อเก็บโครงสร้างเป็น Python package
+ยังไม่มี API สร้างคูปองหรือ mint และยังไม่ได้ register router ของ coupons ใน `main.py`
+เพิ่ม implementation ภายใน feature นั้นเมื่อกำหนด use case และ authorization แล้ว
+
+## สิ่งที่ยังต้องตัดสินใจ
+
+อ่าน [architecture](docs/architecture.md) สำหรับ folder structure, dependency rules,
+ขอบเขตที่ทำแล้ว และตารางสิ่งที่ยังต้องตัดสินใจ
+อ่าน [contract validation](docs/contract-validation.md) ก่อนเพิ่ม transaction endpoint
+
+ประเด็นที่ยังเปิดอยู่: deployment/contract addresses, custody และ signing/KMS, authentication
+กับ wallet ownership, points token, queue และ idempotency/nonce policy, finality/reorg policy,
+production database/deployment และความลับของ redeem codes
+
+SQL เดิมเก็บใน `docs/legacy/0001_typescript_reference.sql` เพื่อเทียบ requirements เท่านั้น
+ไม่อยู่ใน Alembic migration path และไม่ได้อ้างว่าพฤติกรรมเก่าทั้งหมดตรงกับ contract ล่าสุด

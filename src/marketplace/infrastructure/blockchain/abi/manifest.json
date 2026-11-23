@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/corp-ais/blockchain-coupon-marketplace-loyalty",
+  "revision": "1dc42d555046830c7320e46052696f62ab380dad",
+  "deployment_status": "unverified",
+  "contracts": {
+    "Coupon.json": "4fa12c45aba59566a8d91f428b98174201fef52e7cfc86f98bbbb9e2f927f8f2",
+    "Marketplace.json": "0491877fc5a1ca213dcb5976d3c8eb1f84f0fff911375379b626fb596360cde3",
+    "MarketplaceUpgradeable.json": "55937b220e49266d215521884e4c19ba1f286a930a71f363bf9d6ab254d31f02",
+    "THB.json": "f36b5214282ce4774bc01525b60fce3c254e643be8f2cb5e204217394680a772",
+    "Vault.json": "6d5d60b31baa22ea21754cc81697dd22112872f4b4e4d6b4603383e8cf937a58"
+  }
+}
