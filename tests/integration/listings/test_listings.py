@@ -93,10 +93,9 @@ def test_invalid_address_is_rejected(client: TestClient) -> None:
     assert client.get(URL.replace(MARKET, "not-an-address")).status_code == 422
 
 
-def test_catalog_has_no_write_endpoint(client: TestClient) -> None:
-    paths = client.get("/openapi.json").json()["paths"]
-    for path, route in paths.items():
-        if not path.startswith("/api/v1/marketplaces/"):
+def test_no_transaction_endpoint_is_exposed(client: TestClient) -> None:
+    for path, route in client.get("/openapi.json").json()["paths"].items():
+        if path == "/v1/auth/login":
             continue
         assert not set(route) & {"post", "put", "patch", "delete"}
 

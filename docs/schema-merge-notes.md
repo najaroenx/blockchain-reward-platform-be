@@ -18,3 +18,13 @@ Schema acceptance and its T6/T7 checks belong to #176. Login belongs to #177, ES
 
 Source references are the previously verified FEAT-03 pack. Contract ABI source remains pinned
 to `1dc42d555046830c7320e46052696f62ab380dad`; deployment is unverified and no chain writes are added.
+
+## FEAT-03 acceptance (#176)
+
+The schema-only suite checks T1 through T8 storage behavior, including subject-kind matching
+(T6) and hash-only session storage (T7). Family revocation is tested with SQL, independent of
+login or refresh adapters. Foreign-key enforcement is checked on the same migrated database.
+
+The full reference pack also includes login/refresh state transitions; those remain with
+#177 and #178. This extraction does not claim the entire 14-pack schema merge or the 366-case
+acceptance harness is complete.
