@@ -229,6 +229,49 @@ Compose เปิด port เฉพาะ loopback และใช้ credential
 ชุดตรวจ auth/migration ผ่าน PostgreSQL 17.11 แล้ว รวม Postman ผ่าน HTTP จริง
 ดูคำสั่งสร้างฐานข้อมูลทดสอบแยกและรันซ้ำใน [merchant login](docs/auth-login.md#repeatable-checks)
 
+## รัน Backend ด้วย Docker Compose
+
+ใช้ Docker Compose และ Python 3 เรียกสคริปต์จาก root ของ repo Backend
+
+```sh
+./start-backend.sh
+curl --fail --retry 15 --retry-all-errors --retry-delay 1 http://127.0.0.1:3000/readyz
+```
+
+Compose build image จาก source ใน checkout นี้ ใช้ PostgreSQL 17 ที่พอร์ต
+`5432` และรัน Alembic ก่อนเปิด API, Worker และ Indexer Worker กับ Indexer
+รัน `--check` แล้วจบเมื่อ config ผ่าน สคริปต์เตรียม Docker network
+`blockchain-reward-platform_loaffinity-singlenode` ให้ทั้งสอง process
+เรียก Besu ที่ `http://besu-node:8545` ตั้ง `REWARD_CHAIN_NETWORK` หรือ
+`REWARD_RPC_URL` ใน `.env` ถ้าชื่อ network หรือ RPC ของทีมต่างจากค่าเริ่มต้น
+
+เว้น `REWARD_DATABASE_URL` ว่างเพื่อใช้ PostgreSQL ใน Compose ตั้งค่านี้
+เป็น URL ของ PostgreSQL หากต้องการให้ API, Worker, Indexer และ Alembic
+ใช้ฐานข้อมูลอื่น การตั้งค่า `DATABASE_URL` ใน `.env` ใช้กับการรัน Backend บน host
+
+- ตั้ง `REWARD_POSTGRES_PORT=5434` ใน `.env` หากเปิด Blockscout ที่ใช้พอร์ต `5432` อยู่
+- เปิด Vault ในเครื่องด้วย `docker compose --profile vault up -d vault`
+- เปิด Adminer ด้วย `docker compose --profile observability up -d adminer`
+- ปิดชุด Backend ด้วย `docker compose --profile backend down` ระบุ profile เพิ่มตามที่เปิดไว้
+
+### ใช้ PostgreSQL 16 จาก BE-0004
+
+หยุด container ที่ใช้ volume เดิมก่อน ตั้ง `BE0004_POSTGRES_PASSWORD` เป็น
+รหัสผ่านเดิมของฐานข้อมูล BE-0004 ใน `.env` ของ repo Backend แล้วรัน
+
+```sh
+./start-backend.sh --be0004
+```
+
+โหมดนี้ใช้พอร์ต `5433` และเปิด volume เดิม
+`blockchain-reward-platform_reward_db_data` ด้วย PostgreSQL 16
+ตั้ง `REWARD_DB_VOLUME_NAME` ถ้าเคยใช้ชื่อ volume อื่น
+เมื่อปิดโหมดนี้ให้ระบุทั้งสองไฟล์
+
+```sh
+docker compose --profile backend -f compose.yaml -f compose.be0004.yaml down
+```
+
 ## ตรวจคุณภาพ
 
 ```bash
