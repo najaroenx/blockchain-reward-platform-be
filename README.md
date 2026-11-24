@@ -229,6 +229,43 @@ Compose เปิด port เฉพาะ loopback และใช้ credential
 ชุดตรวจ auth/migration ผ่าน PostgreSQL 17.11 แล้ว รวม Postman ผ่าน HTTP จริง
 ดูคำสั่งสร้างฐานข้อมูลทดสอบแยกและรันซ้ำใน [merchant login](docs/auth-login.md#repeatable-checks)
 
+### สร้างบัญชีและงานทดสอบสำหรับ Worker
+
+ตั้ง `TEST_POSTGRES_URL` เป็น URL ของ PostgreSQL สำหรับทดสอบที่มีสิทธิ์สร้างฐานข้อมูล แล้วรัน
+
+```bash
+.venv/bin/python scripts/seed.py
+```
+
+สคริปต์สร้างฐานข้อมูล `reward_seed` และรัน Alembic ให้ ใช้ชื่อฐานข้อมูลนี้ใน `DATABASE_URL`
+เมื่อต้องการเปิด Backend กับข้อมูลตัวอย่าง ดู ID, บัญชี และรหัสผ่านสำหรับทดสอบใน
+[`tests/fixtures/accounts.json`](tests/fixtures/accounts.json) ข้อมูลมีร้าน `ACTIVE` และ `PENDING`,
+ลูกค้าทดสอบ, wallet ร้านแบบ mock, point type `REQUESTED` พร้อมงานใน outbox และ coupon draft
+
+เพื่อคืนสภาพตั้งต้น ให้ปิด process ที่ต่อฐานข้อมูลตัวอย่าง แล้วรัน
+`.venv/bin/python scripts/seed.py --reset` คำสั่งนี้สร้างฐานข้อมูลที่สคริปต์เป็นเจ้าของขึ้นใหม่
+
+### Deploy contracts และบันทึก block เริ่มต้น
+
+เตรียม repo `blockchain-coupon-marketplace-loyalty` และ `blockchain_point_loyalty` ไว้ข้าง repo นี้
+พร้อม dependencies จาก lockfile ของ revision ที่ใช้ สคริปต์ build จาก commit ที่ pin ไว้ใน ABI manifest
+และจาก [Point Factory PR #1](https://github.com/subtawe/blockchain_point_loyalty/pull/1)
+
+เปิด Hardhat node สำหรับพัฒนา แล้วรันจาก repo Backend
+
+```bash
+export REWARD_DEPLOY_RPC_URL=http://127.0.0.1:8545
+.venv/bin/python scripts/deploy.py --network hardhat
+```
+
+เลือก `besu` สำหรับ chain ID `235` หรือ `dlp` สำหรับ DLP testnet ที่ chain ID `116687680`
+ตั้ง `REWARD_DEPLOY_PRIVATE_KEY` ใน environment ของ deployer เมื่อ RPC ใช้บัญชีที่เซ็นจากเครื่องนี้
+ผล deploy อยู่ที่ `deployments/<network>.json` ระบุ chain, revision, contract addresses, receipts และ
+`deployBlock` รันซ้ำกับไฟล์เดิมเพื่อตรวจ deployment เดิม ใช้ `--record` กับชื่อไฟล์ใหม่เมื่อจะ deploy ชุดใหม่
+
+ตั้ง `DEPLOYMENT_FILE` ใน `.env.indexer` ให้ชี้ไปยังไฟล์นี้ `reward-indexer --check` จะตรวจ chain ID
+และรายงาน block เริ่มต้นสำหรับตัวอ่าน chain
+
 ## ตรวจคุณภาพ
 
 ```bash

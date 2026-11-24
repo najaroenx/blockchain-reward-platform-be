@@ -177,6 +177,7 @@ class WorkerSettings(ChainSettings):
 
 class IndexerSettings(ChainSettings):
     finality_depth: int = Field(default=12, ge=1)
+    deployment_file: Path | None = None
 
 
 def find_root(start: Path | None = None) -> Path:

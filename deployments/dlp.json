@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "ready",
+  "network": "dlp",
+  "chainId": 116687680,
+  "genesisHash": "0xae2df28bac5223396909539f2a512006f6c6eb1841d39281c639ea20d7842999",
+  "revisions": {
+    "couponMarketplace": "1dc42d555046830c7320e46052696f62ab380dad",
+    "pointFactory": "af87d7e05cf73bd457d11ac04796d52b233da6fb"
+  },
+  "deployer": "0x0901De08c53a7DD5Fb4A0Da93C3dC4e31761FD36",
+  "contracts": {
+    "thb": {
+      "address": "0x9181f69E40529F733c821D0F905700fC21B97766",
+      "blockNumber": 311973,
+      "blockHash": "0x2effc1e2436ac198d478d3e2b70a7cdad1c6bbc07acf1b30efd7b56986577531",
+      "transactionHash": "0x7340836ccd8acc469149a9dd4d5b9865b9a25467ebe4bba5ceea1a30ca2d8ab8",
+      "runtimeHash": "0x76fdc5da448df5b046865bb65f7d13a28462da8819003089e25852a831f4e8a5"
+    },
+    "coupon": {
+      "address": "0x666F01De374420cdA985d9356554EcA5ab6a4C6D",
+      "blockNumber": 311974,
+      "blockHash": "0xabdc52f90c61bd6eae1749e3b5bd7e33e1ef746750601c97d8fe91b35af6c00f",
+      "transactionHash": "0x228d94a3b8d69a247afea4b09f64ba1346d81edd380d14ffb79b63f1a35dd125",
+      "runtimeHash": "0xef9bebd6631ba2339b2ea540cbb57069d4dbe80f10c4ab6e4e2514bca68af6f5"
+    },
+    "pointFactory": {
+      "address": "0x52eD884f255B65F3d1f54e2d6cf0A5CBad010771",
+      "blockNumber": 311975,
+      "blockHash": "0xa26e0cd3263081645efbd53582951f29cca09cb5a2ff9ece6bca74041d2f9894",
+      "transactionHash": "0xc891503c011c478f0af9c08929fc92493f5df72edda7037f0cf5166612d85f3c",
+      "runtimeHash": "0x6472ed69196c621b1600190df6a1a5f1ca9b5456444be5bb62cf974cf28206d8"
+    },
+    "vault": {
+      "address": "0x5518fAEb7eA0846C9F7d608E5B561159Ed56DC09",
+      "blockNumber": 311976,
+      "blockHash": "0x30666cd7638978d96cd41ed91a669198a4ab7fd6c4fb52ac8fb0b2dc502f8496",
+      "transactionHash": "0x614476e77909712fa4e5995b619794214e55209e331ad19348ce4b93b9312059",
+      "runtimeHash": "0x0b569527a6a25a34980e3f0990a7dc1739718283892e45294486fb5b50aa24dc"
+    },
+    "marketplace": {
+      "address": "0x94bDe1EF06dD2e6cbF5EA72a690665eB90745eB7",
+      "blockNumber": 311979,
+      "blockHash": "0xee22c8ea905eaecd08a8eb6bb6f858c8e14558d0d1d5084e28d823db661abfb1",
+      "transactionHash": "0x2dd3656caf1f4e7b19d70c374941566c22dda72ba558aaa9a0436b2ae8253e51",
+      "runtimeHash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+    },
+    "marketplaceImplementation": {
+      "address": "0xD8e15106e3BC2Fd8A3309fc24ceEFaDB076056ED",
+      "runtimeHash": "0x698018a74416335d10d283b08961de63215a9e35583daca2ef5a445866689f8f"
+    }
+  },
+  "deployBlock": 311973
+}
