@@ -242,8 +242,10 @@ export DATABASE_URL='postgresql+psycopg://reward:local-development-only@127.0.0.
 
 ## รัน Backend ด้วย Docker Compose
 
-เปิด PostgreSQL แยกก่อน แล้วตั้ง `REWARD_DATABASE_URL` ใน `.env` ให้ใช้ hostname และพอร์ตที่
-container เข้าถึงได้ เปลี่ยนชื่อผู้ใช้ รหัสผ่าน และ hostname ให้ตรงกับฐานข้อมูลของคุณ
+เว้น `REWARD_DATABASE_URL` ว่างใน `.env` เพื่อให้สคริปต์เปิด PostgreSQL 17 ใน Compose
+และเก็บข้อมูลใน Docker volume `reward_postgres` ฐานข้อมูลนี้เข้าถึงได้จาก Backend containers
+
+ถ้ามี PostgreSQL ที่รันแยก ให้ตั้ง `REWARD_DATABASE_URL` ใน `.env` เป็น URL ที่ container เข้าถึงได้
 
 ```sh
 REWARD_DATABASE_URL=postgresql+psycopg://reward:local-development-only@postgres.example:5432/reward
@@ -256,14 +258,14 @@ REWARD_DATABASE_URL=postgresql+psycopg://reward:local-development-only@postgres.
 curl --fail --retry 15 --retry-all-errors --retry-delay 1 http://127.0.0.1:3000/readyz
 ```
 
-Compose build image จาก source ใน checkout นี้ แล้วรัน Alembic กับฐานข้อมูลที่ระบุก่อนเปิด
-API, Worker และ Indexer ทั้งสี่บริการใช้ `REWARD_DATABASE_URL` เดียวกัน Worker กับ Indexer
-รัน `--check` แล้วจบเมื่อ config ผ่าน สคริปต์เตรียม Docker network
+Compose build image จาก source ใน checkout นี้ แล้วรัน Alembic กับฐานข้อมูลที่เลือกก่อนเปิด
+API, Worker และ Indexer โดย Worker กับ Indexer รัน `--check` แล้วจบเมื่อ config ผ่าน
+สคริปต์เตรียม Docker network
 `blockchain-reward-platform_loaffinity-singlenode` ให้ทั้งสอง process
 เรียก Besu ที่ `http://besu-node:8545` ตั้ง `REWARD_CHAIN_NETWORK` หรือ
 `REWARD_RPC_URL` ใน `.env` ถ้าชื่อ network หรือ RPC ของทีมต่างจากค่าเริ่มต้น
 
-ปิดชุด Backend ด้วย `docker compose down`
+ปิดชุด Backend รวมถึง PostgreSQL local ด้วย `docker compose --profile local-db down`
 
 ## ตรวจคุณภาพ
 

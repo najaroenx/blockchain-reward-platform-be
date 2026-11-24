@@ -9,8 +9,13 @@ case "${1-}" in
   *) printf 'Usage: %s\n' "$0" >&2; exit 2 ;;
 esac
 
-network=$("${compose[@]}" config --format json |
-  python3 -c 'import json, sys; print(json.load(sys.stdin)["networks"]["blockchain"]["name"])')
+startup_config=$("${compose[@]}" config --format json |
+  python3 -c 'import json, sys; config = json.load(sys.stdin); print(config["networks"]["blockchain"]["name"], config["x-external-database"])')
+read -r network external_database <<< "$startup_config"
+if [[ -z "$external_database" ]]; then
+  compose+=(--profile local-db)
+fi
+
 if ! docker network inspect "$network" >/dev/null 2>&1; then
   docker network create "$network" >/dev/null
 fi
