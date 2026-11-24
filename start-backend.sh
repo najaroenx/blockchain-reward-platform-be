@@ -2,12 +2,11 @@
 set -euo pipefail
 
 cd -- "$(dirname -- "$0")"
-compose=(docker compose --profile backend -f compose.yaml)
+compose=(docker compose -f compose.yaml)
 case "${1-}" in
   "") ;;
-  --be0004) compose+=(-f compose.be0004.yaml) ;;
-  --help|-h) printf 'Usage: %s [--be0004]\n' "$0"; exit 0 ;;
-  *) printf 'Usage: %s [--be0004]\n' "$0" >&2; exit 2 ;;
+  --help|-h) printf 'Usage: %s\n' "$0"; exit 0 ;;
+  *) printf 'Usage: %s\n' "$0" >&2; exit 2 ;;
 esac
 
 network=$("${compose[@]}" config --format json |

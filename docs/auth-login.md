@@ -130,13 +130,11 @@ With Newman available, run the full collection against an isolated seeded SQLite
 .venv/bin/python scripts/verify_login_api.py --newman newman
 ```
 
-For PostgreSQL, start the local service and supply an admin connection used only to create
-randomly named disposable databases. Each test database is removed after use; the supplied
-admin database is not migrated, seeded, or dropped.
+Start [local PostgreSQL](../README.md#postgresql-สำหรับ-local-development) and set
+`TEST_POSTGRES_URL` to a connection with permission to create databases. The tests create and
+remove randomly named databases.
 
 ```bash
-docker compose pull postgres
-docker compose up -d --wait postgres
 export TEST_POSTGRES_URL='postgresql+psycopg://reward:local-development-only@127.0.0.1:5432/reward'
 .venv/bin/pytest tests/integration/auth tests/integration/test_migrations.py -q
 .venv/bin/python scripts/verify_login_api.py --newman newman --postgres

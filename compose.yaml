@@ -6,11 +6,10 @@ x-backend: &backend
   image: "${REWARD_BACKEND_IMAGE:-reward-backend:dev}"
   pull_policy: never
   init: true
-  profiles: [backend]
 
 x-backend-env: &backend-env
   APP_ENV: development
-  DATABASE_URL: "${REWARD_DATABASE_URL:-postgresql+psycopg://reward:${REWARD_POSTGRES_PASSWORD:-local-development-only}@postgres:5432/reward}"
+  DATABASE_URL: "${REWARD_DATABASE_URL:?Set REWARD_DATABASE_URL to an existing PostgreSQL database}"
   LOG_LEVEL: "${LOG_LEVEL:-info}"
 
 x-rpc-env: &rpc-env
@@ -22,31 +21,11 @@ x-migration-dependency: &migration-dependency
     condition: service_completed_successfully
 
 services:
-  # reward plantform
-  postgres:
-    restart: *service-restart
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: reward
-      POSTGRES_PASSWORD: "${REWARD_POSTGRES_PASSWORD:-local-development-only}"
-      POSTGRES_DB: reward
-    ports: ["127.0.0.1:${REWARD_POSTGRES_PORT:-5432}:5432"]
-    volumes:
-      - reward_postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   migrate:
     <<: *backend
     build: .
     command: ["alembic", "upgrade", "head"]
     environment: *backend-env
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   api:
     <<: *backend
@@ -87,36 +66,7 @@ services:
     networks: [default, blockchain]
     depends_on: *migration-dependency
 
-  vault:
-    image: hashicorp/vault:2.2.2
-    profiles: ["vault"]
-    restart: *service-restart
-    command: ["server", "-dev"]
-    environment:
-      VAULT_ADDR: http://127.0.0.1:8200
-      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
-    ports: ["127.0.0.1:8200:8200"]
-    networks: [vault-local]
-    healthcheck:
-      test: ["CMD", "vault", "status"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-  # ------
-
-  adminer:
-    profiles: [observability]
-    image: adminer
-    depends_on:
-      - postgres
-    ports:
-      - "8080:8080"
-
 networks:
   blockchain:
     external: true
     name: "${REWARD_CHAIN_NETWORK:-blockchain-reward-platform_loaffinity-singlenode}"
-  vault-local: {}
-
-volumes:
-  reward_postgres: {}

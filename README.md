@@ -215,21 +215,39 @@ Production บังคับให้ตั้งค่า signer ครบแ�
 
 ## PostgreSQL สำหรับ local development
 
-เมื่อ Docker daemon ทำงาน:
+ใช้ PostgreSQL ที่รันอยู่ หรือเปิด PostgreSQL สำหรับ local development แยกด้วย Docker
 
 ```bash
-docker compose up -d postgres
+docker run --detach --name reward-postgres-dev \
+  --env POSTGRES_USER=reward \
+  --env POSTGRES_PASSWORD=local-development-only \
+  --env POSTGRES_DB=reward \
+  --publish 127.0.0.1:5432:5432 \
+  --volume reward-postgres-dev:/var/lib/postgresql/data \
+  postgres:17-alpine
+docker exec reward-postgres-dev pg_isready -h 127.0.0.1 -U reward -d reward
+```
+
+เมื่อ PostgreSQL พร้อม ให้ตั้ง `DATABASE_URL` สำหรับรัน API บนเครื่องโดยตรง
+
+```bash
 export DATABASE_URL='postgresql+psycopg://reward:local-development-only@127.0.0.1:5432/reward'
 .venv/bin/alembic upgrade head
 .venv/bin/reward-api
 ```
 
-Compose เปิด port เฉพาะ loopback และใช้ credential สำหรับ local เท่านั้น
 อย่าใช้คำสั่ง migrations นี้กับฐานข้อมูล production หรือ schema เก่าที่มีข้อมูลโดยยังไม่ review
 ชุดตรวจ auth/migration ผ่าน PostgreSQL 17.11 แล้ว รวม Postman ผ่าน HTTP จริง
 ดูคำสั่งสร้างฐานข้อมูลทดสอบแยกและรันซ้ำใน [merchant login](docs/auth-login.md#repeatable-checks)
 
 ## รัน Backend ด้วย Docker Compose
+
+เปิด PostgreSQL แยกก่อน แล้วตั้ง `REWARD_DATABASE_URL` ใน `.env` ให้ใช้ hostname และพอร์ตที่
+container เข้าถึงได้ เปลี่ยนชื่อผู้ใช้ รหัสผ่าน และ hostname ให้ตรงกับฐานข้อมูลของคุณ
+
+```sh
+REWARD_DATABASE_URL=postgresql+psycopg://reward:local-development-only@postgres.example:5432/reward
+```
 
 ใช้ Docker Compose และ Python 3 เรียกสคริปต์จาก root ของ repo Backend
 
@@ -238,39 +256,14 @@ Compose เปิด port เฉพาะ loopback และใช้ credential
 curl --fail --retry 15 --retry-all-errors --retry-delay 1 http://127.0.0.1:3000/readyz
 ```
 
-Compose build image จาก source ใน checkout นี้ ใช้ PostgreSQL 17 ที่พอร์ต
-`5432` และรัน Alembic ก่อนเปิด API, Worker และ Indexer Worker กับ Indexer
+Compose build image จาก source ใน checkout นี้ แล้วรัน Alembic กับฐานข้อมูลที่ระบุก่อนเปิด
+API, Worker และ Indexer ทั้งสี่บริการใช้ `REWARD_DATABASE_URL` เดียวกัน Worker กับ Indexer
 รัน `--check` แล้วจบเมื่อ config ผ่าน สคริปต์เตรียม Docker network
 `blockchain-reward-platform_loaffinity-singlenode` ให้ทั้งสอง process
 เรียก Besu ที่ `http://besu-node:8545` ตั้ง `REWARD_CHAIN_NETWORK` หรือ
 `REWARD_RPC_URL` ใน `.env` ถ้าชื่อ network หรือ RPC ของทีมต่างจากค่าเริ่มต้น
 
-เว้น `REWARD_DATABASE_URL` ว่างเพื่อใช้ PostgreSQL ใน Compose ตั้งค่านี้
-เป็น URL ของ PostgreSQL หากต้องการให้ API, Worker, Indexer และ Alembic
-ใช้ฐานข้อมูลอื่น การตั้งค่า `DATABASE_URL` ใน `.env` ใช้กับการรัน Backend บน host
-
-- ตั้ง `REWARD_POSTGRES_PORT=5434` ใน `.env` หากเปิด Blockscout ที่ใช้พอร์ต `5432` อยู่
-- เปิด Vault ในเครื่องด้วย `docker compose --profile vault up -d vault`
-- เปิด Adminer ด้วย `docker compose --profile observability up -d adminer`
-- ปิดชุด Backend ด้วย `docker compose --profile backend down` ระบุ profile เพิ่มตามที่เปิดไว้
-
-### ใช้ PostgreSQL 16 จาก BE-0004
-
-หยุด container ที่ใช้ volume เดิมก่อน ตั้ง `BE0004_POSTGRES_PASSWORD` เป็น
-รหัสผ่านเดิมของฐานข้อมูล BE-0004 ใน `.env` ของ repo Backend แล้วรัน
-
-```sh
-./start-backend.sh --be0004
-```
-
-โหมดนี้ใช้พอร์ต `5433` และเปิด volume เดิม
-`blockchain-reward-platform_reward_db_data` ด้วย PostgreSQL 16
-ตั้ง `REWARD_DB_VOLUME_NAME` ถ้าเคยใช้ชื่อ volume อื่น
-เมื่อปิดโหมดนี้ให้ระบุทั้งสองไฟล์
-
-```sh
-docker compose --profile backend -f compose.yaml -f compose.be0004.yaml down
-```
+ปิดชุด Backend ด้วย `docker compose down`
 
 ## ตรวจคุณภาพ
 
@@ -320,7 +313,7 @@ blockchain-reward-platform-be/
 │       ├── test_migrations.py
 │       └── test_processes.py
 ├── docs/                            # Architecture, ผลตรวจ และ SQL เก่า
-├── compose.yaml                     # PostgreSQL สำหรับ local
+├── compose.yaml                     # Docker Compose สำหรับ Backend
 ├── Makefile                         # คำสั่ง install/run/check
 └── src/
     └── marketplace/
