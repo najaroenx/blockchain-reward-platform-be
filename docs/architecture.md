@@ -26,61 +26,42 @@ and shared-infrastructure ownership rules.
 
 ```text
 src/marketplace/
-  main.py                          composition root, HTTP app, lifespan, error mapping
-  settings.py                      role-specific configuration
-  logging_config.py                JSON logging and secret redaction
-  worker/
-    main.py                        shared worker entry point; execution disabled
-  indexer/
-    main.py                        shared indexer entry point; execution disabled
-  listings/
-    domain/entities.py             immutable listing and marketplace values
-    application/use_cases.py       catalog availability and not-found behavior
-    application/ports.py           repository interface consumed by use cases
-    application/dto.py             query result values
-    application/exceptions.py      application failures
-    infrastructure/models.py       listings-owned SQLAlchemy projections
-    infrastructure/repository.py   listings-owned query adapter
-    presentation/router.py         HTTP endpoints receiving an injected provider
-    presentation/schemas.py        HTTP validation and response models
-  coupons/
-    domain/entities.py             CouponType/CouponHolding chain snapshots, CouponTypeDraft
-                                    pre-chain record (no chain_type_id until a later phase)
-    application/dto.py             draft create input, redeem command/payload/result
-    application/exceptions.py      draft application failures, redeem error codes and failures
-    application/ports.py           draft repository; wallet, deployment, and admission contracts
-    application/use_cases.py       idempotent draft create/get/list; resolve deployment and
-                                    admit a fixed amount of one for redeem
-    infrastructure/models.py       coupon_types and idempotency-key projections (drafts)
-    infrastructure/repository.py   idempotent draft create/replay adapter
-    infrastructure/mock_auth.py    local fixture token mapped to a fixed user and wallet
-    infrastructure/jwt_auth.py     ES256 verification before trusted wallet resolution
-    infrastructure/admission.py    atomic SQL admission and byte-identical idempotency replay
-    infrastructure/contract_errors.py  classification of decoded errors with established origin
-    presentation/router.py         coupon-type routes (mounted only if COUPON_TYPES_ENABLED)
-                                    and the redeem route with injected dependencies
-    presentation/errors.py         centralized error status, message, headers, and OpenAPI examples
-    presentation/schemas.py        draft and redeem HTTP validation/response models
-  auth/
-    domain/entities.py             login policy and identity/session values
-    application/use_cases.py       credential verification and login coordination
-    application/ports.py           LoginStore, PasswordVerifier, TokenSigner
-    infrastructure/models.py       seven FEAT-03 foundation tables
-    infrastructure/repository.py   rate reservations, lockout, atomic sessions
-    infrastructure/passwords.py    Argon2id and equivalent-cost dummy verification
-    presentation/router.py         login route and secure refresh cookie
+  main.py                           API composition and error mapping
+  settings.py                       Role configuration
+  logging_config.py                 JSON logging and secret redaction
   infrastructure/
-    database.py                    shared engine and request-scoped sessions
-    blockchain/abi/                pinned reference, not a deployment binding
-migrations/                        Alembic schema owned by this backend
-tests/conftest.py                  shared fixtures
-tests/unit/                        configuration, logging, and reference tests
-tests/integration/listings/         catalog HTTP and database tests
-tests/integration/coupons/          redeem HTTP, signed JWT, and real SQL admission tests
-tests/integration/                 shared migration and process tests
-scripts/verify.py                  repeatable verification entry point
-scripts/verify_redeem_api.py       OpenAPI and Postman export/check; optional Newman fixtures
-scripts/sync_contract_reference.py reproducible ABI extraction from the pinned Git commit
+    database.py                     Shared SQLAlchemy engine and session factory
+    operation_models.py             Shared operation, idempotency, outbox, and execution tables
+    blockchain/abi/                 Pinned contract reference
+  auth/                             Merchant login, JWT signing, and refresh
+  coupons/                          Coupon-type drafts and redeem
+  deposits/                         Payment preparation and deposit persistence
+  merchants/                        Registration and provisioning admission
+  operations/                       Read operations, history, and planned steps
+  point_types/                      Point type admission and replay
+  listings/
+    domain/entities/listing.py      Listing and marketplace values
+    application/interfaces/        ListingReader ABC
+    application/use_cases/         Catalog availability and not-found behavior
+    infrastructure/models.py        SQLAlchemy projection models
+    infrastructure/repositories/   SqlListingReader
+    presentation/                   HTTP router and validation schemas
+  worker/
+    main.py                         Worker CLI composition
+    domain/entities/                Claimed jobs and retry timing
+    application/interfaces/        OutboxRepository ABC
+    application/use_cases/         Outbox processing and explicit redeem handler
+    infrastructure/repositories/   PostgreSQL outbox and transaction adapter
+    presentation/                   CLI input and output
+  indexer/
+    main.py                         Indexer CLI composition
+    domain/entities/                Deployment start and chain check
+    application/                    Deployment reader port, config check, and redeem projection
+    infrastructure/                 Deployment file adapter
+    presentation/                   CLI input and output
+migrations/                         Alembic migrations and model registration
+tests/                              Unit and integration tests
+scripts/                            Bootstrap, verification, and local fixtures
 ```
 
 The installable package is `marketplace` under `src/`. Organize by feature first, then by domain,
@@ -101,7 +82,7 @@ independent slices that happen to share the feature package:
 
 Note the two slices also carry two independent idempotency mechanisms: the Phase 1 draft feature
 has its own bespoke `coupon_type_idempotency_keys` table, while redeem admission uses the shared,
-general `infrastructure/{idempotency,operation_models}.py`. Unifying the draft feature onto the
+general `idempotency.py` and `infrastructure/operation_models.py`. Unifying the draft feature onto the
 shared mechanism is a reasonable future cleanup, not done here to keep this merge's blast radius
 contained.
 
@@ -113,10 +94,12 @@ migrations explicitly register both shared and implemented feature models.
 The system remains a modular monolith. CLI entry points are `reward-api`, `reward-worker`, and
 `reward-indexer`, targeting `marketplace.main`, `marketplace.worker.main`, and
 `marketplace.indexer.main`.
-Configuration, scripts, migrations, and tests stay at the repository root.
+Configuration, scripts, migrations, and tests stay at the repository root. The API composition root
+injects the SQL repository into each use case. The Worker composition root injects the PostgreSQL
+outbox adapter. It shares one connection between the handler and acknowledgement within each job.
 
 Within listings, domain objects describe listing values. Query DTOs and availability errors belong
-to application. Use cases depend on domain and repository protocols. Presentation handles HTTP.
+to application. Use cases depend on domain and abstract repository ports in `application/interfaces/`. Presentation handles HTTP.
 `main.py` wires the concrete repository into the use case and injects its provider into the router.
 It also registers `POST /v1/coupons/redeem` and accepts optional `RedeemDependencies` through
 `create_app`. Those dependencies supply an authentication callback and an optional `RedeemCoupons`
@@ -141,13 +124,14 @@ optional PostgreSQL. Their operation/outbox write probes do not implement produc
 operation/idempotency/outbox models live in `infrastructure/operation_models.py` and migration
 `0002_redeem_admission`; the feature adapter depends on that shared persistence layer. It claims
 idempotency first, commits operation/payload/outbox/acknowledgement together, and returns only after
-commit. Fingerprinting is shared in `infrastructure/idempotency.py`. PostgreSQL admission uses
+commit. Fingerprinting is shared in `idempotency.py`. PostgreSQL admission uses
 READ COMMITTED for replay after a concurrent insert commits; other readers keep their isolation.
 The default app still lacks trusted wallet/deployment adapters and remains unavailable for writes.
 Real admission HTTP tests verify 20 overlapping requests create one operation and outbox.
 
-Explicit `worker/redeem.py` and `indexer/redeem.py` use persisted signed transactions and receipt
-correlation through `coupons/infrastructure/execution_store.py` and `receipts.py`. Migration
+The explicit Worker and Indexer redeem use cases in `application/use_cases/redeem.py` depend on
+ports in `coupons/application/interfaces/execution.py`. The SQL adapter in
+`coupons/infrastructure/repositories/execution.py` persists signed transactions and correlates receipts. Migration
 `0003_redeem_execution` adds transaction steps, deduplicated events, mined results and preflight
 refusals. The local test signer checks raw calldata/identity before handing bytes to the handler.
 The production CLI remains disabled; signing/nonce allocation, outbox publication and finality/reorg
@@ -185,10 +169,10 @@ The latter injects test adapters. Its 202 and error responses do not prove durab
 authentication policy, idempotency, rate limiting, or chain results.
 The [redeem API reference](api/redeem.md) lists public errors and artifact commands.
 
-Import Linter covers listings, coupons, and auth with six dependency rules: domain independence, application independence,
-presentation isolation from persistence, feature infrastructure isolation from HTTP, settings/logging
-independence from features, and shared infrastructure independence from features. Domain and
-application do not depend on FastAPI, Pydantic, or SQLAlchemy.
+Import Linter checks six dependency rules across all layered packages. The rules cover Domain and
+Application dependencies, Presentation and persistence, feature Infrastructure and HTTP, settings
+and logging, and shared Infrastructure. FastAPI, Pydantic, and SQLAlchemy dependencies belong in
+the adapter layers and the composition roots.
 
 ## Responsibilities
 
