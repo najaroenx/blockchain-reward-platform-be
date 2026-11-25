@@ -58,7 +58,7 @@ deployment, worker, indexer, catalog หรือ JWT signer พร้อมใ�
 | --- | --- |
 | `.env` | `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL` |
 | `.env.api` | `HOST`, `PORT`, `COUPON_TYPES_ENABLED`, `MOCK_AUTH_ENABLED`, `MOCK_AUTH_TOKEN`, `MOCK_AUTH_USER_ID`, `MOCK_AUTH_WALLET_ADDRESS`, `LOGIN_IP_LIMIT`, `LOGIN_IP_WINDOW_SECONDS`, `JWT_PRIVATE_KEY_FILE`, `JWT_PUBLIC_KEY_FILE`, `JWT_ISSUER`, `JWT_AUDIENCE` |
-| `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION` |
+| `.env.worker` | `RPC_URL`, `CHAIN_ID`, `KMS_KEY_ARN`, `KMS_REGION`, `WORKER_LEASE_SECONDS` |
 | `.env.indexer` | `RPC_URL`, `CHAIN_ID`, `FINALITY_DEPTH` |
 
 API และ indexer ปฏิเสธ KMS variables ทั้งจากไฟล์ shared และ environment ที่ส่งเข้ามา
@@ -75,7 +75,13 @@ Worker runtime ของ #150 อ่าน PostgreSQL outbox เฉพาะ `op
 `marketplace.worker.main.main(handlers=...)` ตัวเรียกส่ง mapping จากชนิด operation ไปยัง handler
 ที่รับ `(connection, job)` โดยเขียนผลผ่าน connection ที่ส่งให้ เพื่อ commit พร้อมการรับงานสำเร็จ
 Worker หลาย process จองงานแยกกันด้วย `FOR UPDATE SKIP LOCKED` และบันทึก lease กับ retry ใน
-`worker_attempt` งานที่ lease หมดอายุรอการคืนคิวใน #153 ส่วนการเซ็นและส่งธุรกรรมอยู่ใน #151 และ #152
+`worker_attempt` ตั้งอายุ lease ด้วย `WORKER_LEASE_SECONDS` ใน `.env.worker` แล้วเริ่ม Worker ใหม่
+ค่าเริ่มต้นคือ 30 วินาที
+
+เมื่อ lease หมดอายุ Worker ที่ poll จะปิด attempt เดิมและ claim งานใหม่ใน transaction เดียวกัน
+เงื่อนไขคืองานยังเป็น `PENDING` และยังไม่มีการบันทึกว่าเริ่มส่งธุรกรรม ขั้น `PREPARED` มี hash
+ของธุรกรรมที่เซ็นแล้วและยัง claim ใหม่ได้ ตั้งแต่ `SUBMITTED` เป็นต้นไป Worker จะรอให้ Indexer
+ตรวจผลจาก chain ส่วนการเซ็นและส่งธุรกรรมอยู่ใน #151 และ #152
 
 ตั้ง `TEST_POSTGRES_URL` แล้วรัน `.venv/bin/pytest -q tests/integration/test_worker_outbox.py`
 เพื่อทดสอบการหยิบงาน, retry และต่ออายุ lease บน PostgreSQL

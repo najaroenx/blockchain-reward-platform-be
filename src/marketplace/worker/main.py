@@ -39,7 +39,12 @@ def main(handlers: Mapping[OperationKind, JobHandler[Connection]] | None = None)
     database = Database(config.database_url.get_secret_value())
     try:
         try:
-            worker = OutboxWorker(WorkerOutbox(database.engine), handlers, uuid4().hex)
+            worker = OutboxWorker(
+                WorkerOutbox(database.engine),
+                handlers,
+                uuid4().hex,
+                lease_seconds=config.worker_lease_seconds,
+            )
         except ValueError as error:
             parser.exit(2, f"{error}\n")
         worker.run(stop)

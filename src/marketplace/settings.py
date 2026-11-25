@@ -173,6 +173,7 @@ class ChainSettings(SharedSettings):
 class WorkerSettings(ChainSettings):
     kms_key_arn: SecretStr = Field(min_length=1)
     kms_region: str = Field(min_length=1)
+    worker_lease_seconds: int = Field(default=30, ge=1, le=2_147_483_647)
 
 
 class IndexerSettings(ChainSettings):

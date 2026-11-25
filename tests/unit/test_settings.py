@@ -55,7 +55,12 @@ def test_worker_requires_own_configuration(tmp_path: Path) -> None:
     with pytest.raises(ConfigurationError, match="kms_key_arn"):
         load_settings("worker", root=tmp_path, environ=values)
     values.update(KMS_KEY_ARN="kms-test", KMS_REGION="ap-southeast-1")
-    assert load_settings("worker", root=tmp_path, environ=values).chain_id == 1337
+    settings = load_settings("worker", root=tmp_path, environ=values)
+    assert settings.chain_id == 1337
+    assert settings.worker_lease_seconds == 30
+    values["WORKER_LEASE_SECONDS"] = "0"
+    with pytest.raises(ConfigurationError, match="worker_lease_seconds"):
+        load_settings("worker", root=tmp_path, environ=values)
 
 
 @pytest.mark.parametrize("rpc", ["file:///SECRET", "http://", "ws://localhost"])
