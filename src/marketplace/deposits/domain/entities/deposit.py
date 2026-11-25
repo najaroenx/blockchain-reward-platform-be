@@ -12,6 +12,7 @@ def utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+# Validates the allowed range in satang and converts the value to exact token base units.
 @dataclass(frozen=True)
 class DepositAmount:
     satang: int
@@ -25,6 +26,7 @@ class DepositAmount:
         return str(self.satang * BASE_UNITS_PER_SATANG)
 
 
+# Carries a provider reference, HTTPS payment URL, and expiry for a checkout.
 @dataclass(frozen=True)
 class PaymentInstructions:
     reference: str
@@ -44,6 +46,7 @@ class PaymentInstructions:
             raise ValueError("Invalid payment instructions")
 
 
+# Represents a saved deposit and derives its current payment status from the supplied time.
 @dataclass(frozen=True)
 class DepositRecord:
     id: str

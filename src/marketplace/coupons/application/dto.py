@@ -8,6 +8,7 @@ from typing import Literal
 from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 
 
+# Carries validated coupon draft fields from the HTTP schema to the creation use case.
 @dataclass(frozen=True)
 class CreateCouponType:
     name: str
@@ -17,6 +18,7 @@ class CreateCouponType:
     total_supply: int
 
 
+# Returns a page of saved drafts with the total needed by the HTTP response.
 @dataclass(frozen=True)
 class CouponTypePage:
     items: tuple[CouponTypeDraft, ...]
@@ -31,6 +33,7 @@ class AuthenticatedWallet:
     wallet_address: str
 
 
+# Combines a verified wallet, coupon type ID, and idempotency key for redeem admission.
 @dataclass(frozen=True)
 class RedeemCouponCommand:
     wallet: AuthenticatedWallet
@@ -46,6 +49,7 @@ class CouponDeployment:
     contract_address: str
 
 
+# Defines the deployment, wallet, coupon type, and fixed amount to persist for execution.
 @dataclass(frozen=True)
 class RedeemCouponPayload:
     chain_id: int

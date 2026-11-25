@@ -15,6 +15,8 @@ from marketplace.merchants.domain.entities.signup import Signup
 from marketplace.merchants.domain.exceptions import SignupFailure, SignupRateLimited
 
 
+# Coordinates rate limiting, replay checks, credential hashing, wallet reservation, and signup
+# persistence.
 class SignupMerchant:
     def __init__(
         self,

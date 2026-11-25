@@ -33,6 +33,7 @@ class CouponExpiryTimestamp(TypeDecorator[int]):
         return None if value is None else int(value)
 
 
+# Persists the latest block indexed for a marketplace deployment.
 class ProjectionCheckpoint(Base):
     __tablename__ = "marketplace_projection_checkpoint"
 
@@ -41,6 +42,7 @@ class ProjectionCheckpoint(Base):
     indexed_block: Mapped[int] = mapped_column(BigInteger)
 
 
+# Persists a listing and its coupon expiry as derived from indexed contract data.
 class ListingProjection(Base):
     __tablename__ = "marketplace_listing_projection"
 

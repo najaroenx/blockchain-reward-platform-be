@@ -4,6 +4,7 @@ from typing import Literal
 from marketplace.auth.domain.entities.auth import MerchantSubject
 
 
+# Carries normalized credentials and hashed request metadata from HTTP into the login use case.
 @dataclass(frozen=True)
 class LoginCommand:
     normalized_email: str
@@ -12,6 +13,7 @@ class LoginCommand:
     user_agent_hash: bytes | None
 
 
+# Identifies a merchant administrator and their session in a signed access token.
 @dataclass(frozen=True)
 class AccessClaims:
     sub: str
@@ -23,6 +25,7 @@ class AccessClaims:
     kind: Literal["MERCHANT_ADMIN"] = "MERCHANT_ADMIN"
 
 
+# Identifies a customer session without requiring a merchant identity.
 @dataclass(frozen=True)
 class CustomerAccessClaims:
     sub: str
@@ -33,12 +36,14 @@ class CustomerAccessClaims:
     kind: Literal["CUSTOMER"] = "CUSTOMER"
 
 
+# Supplies the refresh token hash and request IP hash to the token rotation use case.
 @dataclass(frozen=True)
 class RefreshCommand:
     token_hash: bytes = field(repr=False)
     ip_hash: bytes
 
 
+# Returns the newly issued tokens and cookie lifetimes after the rotation succeeds.
 @dataclass(frozen=True)
 class RefreshResult:
     access_token: str = field(repr=False)
@@ -47,6 +52,7 @@ class RefreshResult:
     refresh_max_age: int
 
 
+# Returns the authenticated subject and tokens so the route can build the response and cookie.
 @dataclass(frozen=True)
 class LoginResult:
     access_token: str = field(repr=False)
@@ -56,6 +62,7 @@ class LoginResult:
     refresh_max_age: int
 
 
+# Carries the public part of a signing key from the key publisher to the JWKS route.
 @dataclass(frozen=True)
 class SigningPublicKey:
     kid: str

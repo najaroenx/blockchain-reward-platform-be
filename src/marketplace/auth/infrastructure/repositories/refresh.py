@@ -35,6 +35,7 @@ def duplicate_parent(error: IntegrityError) -> bool:
     )
 
 
+# Implements the refresh port with SQL checks, token rotation, and family revocation.
 class SqlRefreshStore(RefreshStore):
     def __init__(self, sessions: sessionmaker[Session]) -> None:
         self.sessions = sessions

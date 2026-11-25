@@ -25,6 +25,7 @@ from marketplace.infrastructure.operation_models import (
 from marketplace.operation_status import OperationStatus
 
 
+# Persists signed bytes, submission state, and correlated chain results for safe resume.
 class SqlRedeemExecutionStore(RedeemExecutionStore):
     def __init__(self, engine: Engine) -> None:
         self.engine = (

@@ -22,6 +22,7 @@ def base64url(value: bytes) -> str:
     return urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
 
 
+# Signs access claims with P-256 and exposes the matching public key for verification.
 class Es256TokenSigner(TokenSigner, SigningKeyPublisher):
     def __init__(self, private_key_file: Path, *, issuer: str, audience: str) -> None:
         try:
@@ -64,6 +65,7 @@ class Es256TokenSigner(TokenSigner, SigningKeyPublisher):
         return (self._public,)
 
 
+# Keeps authentication fail-closed when the API starts without a signing key.
 class UnavailableTokenSigner(TokenSigner, SigningKeyPublisher):
     def sign(self, claims: AccessClaims | CustomerAccessClaims) -> str:
         raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE"))

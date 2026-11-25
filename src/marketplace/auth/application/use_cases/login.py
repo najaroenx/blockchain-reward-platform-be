@@ -15,6 +15,7 @@ from marketplace.auth.domain.entities.auth import (
 )
 
 
+# Coordinates attempt reservation, password verification, token signing, and session creation.
 class Login:
     def __init__(
         self,

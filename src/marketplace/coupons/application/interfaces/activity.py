@@ -8,6 +8,7 @@ class CouponActivityUnavailable(Exception):
     """The configured chain did not provide a valid coupon activity result."""
 
 
+# Defines how the active check reads a boolean from a trusted coupon deployment.
 class CouponActivityReader(ABC):
     @abstractmethod
     def is_active(self, deployment: CouponDeployment, type_id: CouponTypeId) -> bool: ...

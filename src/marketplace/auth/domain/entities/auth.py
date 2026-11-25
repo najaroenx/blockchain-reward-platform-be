@@ -10,6 +10,7 @@ def normalize_email(value: str) -> str:
     return normalize("NFC", value).strip().lower()
 
 
+# Defines token lifetimes and the limits used to rate-limit or lock out login attempts.
 @dataclass(frozen=True)
 class LoginPolicy:
     access_ttl: Literal[900] = field(default=900, init=False)
@@ -23,6 +24,7 @@ class LoginPolicy:
 DEFAULT_LOGIN_POLICY = LoginPolicy()
 
 
+# Identifies the merchant administrator and merchant state used when granting access.
 @dataclass(frozen=True)
 class MerchantSubject:
     id: str
@@ -30,11 +32,13 @@ class MerchantSubject:
     merchant_status: MerchantStatus
 
 
+# Identifies a customer as a subject of an authentication session.
 @dataclass(frozen=True)
 class CustomerSubject:
     id: str
 
 
+# Represents a session eligible for rotation, including its family and request binding.
 @dataclass(frozen=True)
 class RefreshCandidate:
     session_id: str
@@ -43,6 +47,7 @@ class RefreshCandidate:
     user_agent_hash: bytes | None
 
 
+# Pairs the administrator identity with the stored hash and disabled state used at login.
 @dataclass(frozen=True)
 class AdminCredentials:
     subject: MerchantSubject
@@ -50,6 +55,7 @@ class AdminCredentials:
     disabled: bool = False
 
 
+# Carries a reserved login attempt into the completion or abort step.
 @dataclass(frozen=True)
 class Attempt:
     id: str
@@ -59,6 +65,7 @@ class Attempt:
     created_at: datetime
 
 
+# Describes a session to persist with a refresh token hash and expiration.
 @dataclass(frozen=True)
 class NewSession:
     id: str
@@ -68,6 +75,7 @@ class NewSession:
     expires_at: datetime
 
 
+# Pairs verified credentials with the session that the store should commit.
 @dataclass(frozen=True)
 class LoginGrant:
     credentials: AdminCredentials

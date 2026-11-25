@@ -35,6 +35,8 @@ def point_type_conflict(error: IntegrityError) -> str:
     }.get(constraint, "POINT_TYPE_UNAVAILABLE")
 
 
+# Checks merchant readiness and stores the point type, operation, outbox job, and replay record
+# atomically.
 class SqlPointTypes(PointTypeRepository):
     def __init__(self, engine: Engine) -> None:
         self.engine = (

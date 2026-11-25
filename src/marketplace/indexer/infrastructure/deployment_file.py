@@ -10,6 +10,7 @@ from marketplace.indexer.application.interfaces.deployments import (
 from marketplace.indexer.domain.entities.deployment import DeploymentStart
 
 
+# Validates the deployment file fields needed to determine whether indexing can start.
 class DeploymentRecord(BaseModel):
     schema_version: Literal[1] = Field(validation_alias="schemaVersion")
     status: Literal["ready"]
@@ -17,6 +18,7 @@ class DeploymentRecord(BaseModel):
     deploy_block: int = Field(validation_alias="deployBlock", ge=0)
 
 
+# Implements the deployment reader port by loading the local deployment file.
 class FileDeploymentReader(DeploymentReader):
     def __init__(self, path: Path) -> None:
         self.path = path

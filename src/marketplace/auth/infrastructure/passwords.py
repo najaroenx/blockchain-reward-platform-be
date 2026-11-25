@@ -4,6 +4,7 @@ from argon2.exceptions import Argon2Error, InvalidHashError
 from marketplace.auth.application.interfaces.auth import PasswordVerifier
 
 
+# Implements the password port with Argon2 and uses a dummy hash for unknown accounts.
 class Argon2PasswordVerifier(PasswordVerifier):
     def __init__(self, hasher: PasswordHasher | None = None) -> None:
         self.hasher = hasher or PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4)

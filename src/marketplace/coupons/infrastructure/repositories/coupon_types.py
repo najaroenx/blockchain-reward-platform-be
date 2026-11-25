@@ -15,6 +15,7 @@ from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 from marketplace.coupons.infrastructure.models import CouponTypeIdempotencyKey, CouponTypeModel
 
 
+# Implements the draft port with SQL reads and idempotent creation under unique constraints.
 class SqlCouponTypeRepository(CouponTypeRepository):
     def __init__(self, session: Session) -> None:
         self.session = session

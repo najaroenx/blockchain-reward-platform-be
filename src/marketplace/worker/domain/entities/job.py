@@ -5,6 +5,7 @@ from datetime import timedelta
 from marketplace.operations.domain.entities.kinds import OperationKind
 
 
+# Represents a job under a lease and calculates its retry delay from the attempt count.
 @dataclass(frozen=True)
 class ClaimedJob:
     outbox_id: str

@@ -25,6 +25,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+# Stores the merchant identity and lifecycle state shared by login and provisioning flows.
 class Merchant(Base):
     # Canonical mapping for this table: marketplace.merchants (BE-0902, signup/wallet
     # provisioning) imports this class rather than redeclaring it, since both features
@@ -51,6 +52,7 @@ class Merchant(Base):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+# Stores administrator credentials and links the administrator to the merchant account.
 class MerchantAdmin(Base):
     __tablename__ = "merchant_admin"
     __table_args__ = (
@@ -89,6 +91,7 @@ class Customer(Base):
     )
 
 
+# Persists sessions and refresh token lineage so the store can rotate and revoke a family.
 class AuthSession(Base):
     __tablename__ = "auth_session"
     __table_args__ = (
@@ -148,6 +151,7 @@ class AuthSession(Base):
     revoked_reason: Mapped[str | None] = mapped_column(String)
 
 
+# Records login outcomes and whether each attempt counts toward the account lockout.
 class LoginAttempt(Base):
     __tablename__ = "login_attempt"
     __table_args__ = (
@@ -173,6 +177,7 @@ class LoginAttempt(Base):
     )
 
 
+# Persists per-identifier failure counts and the time at which a lockout ends.
 class LoginLockout(Base):
     __tablename__ = "login_lockout"
     __table_args__ = (
@@ -188,6 +193,7 @@ class LoginLockout(Base):
     )
 
 
+# Records security events for an identity or session and links them to request metadata.
 class AuthEvent(Base):
     __tablename__ = "auth_event"
     __table_args__ = (

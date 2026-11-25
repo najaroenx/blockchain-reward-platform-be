@@ -10,6 +10,7 @@ from marketplace.operations.domain.entities.operation import (
 )
 
 
+# Coordinates operation reads, checks snapshot consistency, and prepares the next page cursor.
 class ReadOperations:
     def __init__(self, repository: OperationReader) -> None:
         self.repository = repository

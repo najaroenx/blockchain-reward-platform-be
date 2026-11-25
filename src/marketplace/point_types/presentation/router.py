@@ -43,6 +43,7 @@ def _error_response(code: str) -> JSONResponse:
     )
 
 
+# Passes validated HTTP input to the point type use case and maps expected failures to responses.
 class PointTypeRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

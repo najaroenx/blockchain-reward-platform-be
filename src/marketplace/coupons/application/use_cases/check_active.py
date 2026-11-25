@@ -3,6 +3,7 @@ from marketplace.coupons.application.interfaces.coupons import CouponDeploymentR
 from marketplace.coupons.domain.entities.type_id import CouponTypeId
 
 
+# Validates the type ID, resolves its deployment, and asks the reader for contract activity.
 class CheckCouponActive:
     def __init__(
         self, deployments: CouponDeploymentResolver, activity: CouponActivityReader

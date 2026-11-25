@@ -81,6 +81,7 @@ class RedeemDependencies:
     redeemer: RedeemCoupons | None = None
 
 
+# Translates redeem validation errors and application failures into the documented HTTP responses.
 class RedeemRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

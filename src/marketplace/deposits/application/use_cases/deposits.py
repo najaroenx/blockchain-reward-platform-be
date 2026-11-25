@@ -13,6 +13,7 @@ from marketplace.deposits.domain.exceptions import DepositError, DepositFailure,
 from marketplace.idempotency import fingerprint
 
 
+# Checks for a replay, obtains payment instructions, and asks the repository to save the deposit.
 class Deposits:
     def __init__(self, repository: DepositRepository, provider: PaymentProvider | None) -> None:
         self.repository = repository

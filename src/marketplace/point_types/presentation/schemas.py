@@ -9,6 +9,7 @@ from marketplace.point_types.domain.entities.point_type import (
 )
 
 
+# Validates and normalizes the name, symbol, and decimal places received over HTTP.
 class CreatePointType(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -24,16 +25,19 @@ class CreatePointType(BaseModel):
         return value
 
 
+# Returns the accepted point type request and the operation ID for tracking it.
 class PointTypeRequested(CreatePointType):
     pointTypeId: str
     status: Literal["REQUESTED"]
     operationId: str
 
 
+# Describes a point type request failure using a public code and message.
 class ErrorDetail(BaseModel):
     code: str
     message: str
 
 
+# Wraps the public error details for a point type request.
 class ErrorResponse(BaseModel):
     error: ErrorDetail

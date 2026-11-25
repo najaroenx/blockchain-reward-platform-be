@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from marketplace.infrastructure.database import Base
 
 
+# Persists a merchant's point type, its uniqueness constraints, and its lifecycle state.
 class PointType(Base):
     __tablename__ = "point_type"
     __table_args__ = (

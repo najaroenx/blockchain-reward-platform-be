@@ -25,6 +25,7 @@ from marketplace.operations.domain.entities.operation import (
 )
 
 
+# Implements operation reads in SQL with actor scoping and stable pagination order.
 class SqlOperationReader(OperationReader):
     def __init__(self, sessions: sessionmaker[Session]) -> None:
         self.sessions = sessions

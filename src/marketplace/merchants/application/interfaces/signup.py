@@ -5,6 +5,8 @@ from datetime import datetime
 from marketplace.merchants.domain.entities.signup import Signup, WalletReference
 
 
+# Carries the request fingerprint, stored response, and credential hash used to check a signup
+# replay.
 @dataclass(frozen=True)
 class SavedSignup:
     digest: bytes
@@ -13,6 +15,7 @@ class SavedSignup:
     password_hash: str | None = field(repr=False)
 
 
+# Defines the port for signup preflight checks and atomic persistence or replay.
 class SignupRepository(ABC):
     @abstractmethod
     def probe(self, scope: str, key: str, email: str) -> SavedSignup | None: ...
@@ -31,6 +34,7 @@ class SignupRepository(ABC):
     ) -> str | SavedSignup: ...
 
 
+# Defines the port for hashing signup passwords and verifying them on replay.
 class SignupCredentialPort(ABC):
     @abstractmethod
     def hash(self, password: str) -> str: ...

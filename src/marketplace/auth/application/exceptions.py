@@ -14,12 +14,14 @@ AuthErrorCode = Literal[
 ]
 
 
+# Carries an authentication outcome and any retry delay across the application boundary.
 @dataclass(frozen=True)
 class AuthRefusal:
     code: AuthErrorCode
     retry_after: int | None = None
 
 
+# Signals a refusal from a use case so the HTTP adapter can translate it.
 class AuthFailure(Exception):
     def __init__(self, refusal: AuthRefusal) -> None:
         super().__init__(refusal.code)

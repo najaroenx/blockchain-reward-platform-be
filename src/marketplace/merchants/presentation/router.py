@@ -33,6 +33,7 @@ def error_response(code: str, *, retry_after: int | None = None) -> JSONResponse
     )
 
 
+# Invokes the merchant signup use case and translates its result or expected errors to HTTP.
 class SignupRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

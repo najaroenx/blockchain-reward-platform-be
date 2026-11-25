@@ -20,21 +20,25 @@ from marketplace.auth.domain.entities.auth import (
 )
 
 
+# Defines how the login use case verifies a submitted password against a stored hash.
 class PasswordVerifier(ABC):
     @abstractmethod
     def verify(self, password_hash: str | None, password: str) -> bool: ...
 
 
+# Defines how login and refresh turn validated claims into a signed access token.
 class TokenSigner(ABC):
     @abstractmethod
     def sign(self, claims: AccessClaims | CustomerAccessClaims) -> str: ...
 
 
+# Defines how the JWKS endpoint obtains the active public verification keys.
 class SigningKeyPublisher(ABC):
     @abstractmethod
     def public_keys(self) -> tuple[SigningPublicKey, ...]: ...
 
 
+# Defines the two persistence steps for checking a refresh token and rotating its session.
 class RefreshStore(ABC):
     @abstractmethod
     def prepare(self, command: RefreshCommand, now: datetime) -> RefreshCandidate | AuthRefusal: ...
@@ -45,6 +49,7 @@ class RefreshStore(ABC):
     ) -> AuthRefusal | None: ...
 
 
+# Defines the persistence steps for reserving, completing, or aborting a login attempt.
 class LoginStore(ABC):
     @abstractmethod
     def reserve(

@@ -9,6 +9,7 @@ from marketplace.coupons.application.exceptions import RedeemErrorCode
 from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 
 
+# Validates the fields and date order for an HTTP request to create a coupon draft.
 class CreateCouponTypeRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     start_date: int = Field(ge=0)
@@ -25,6 +26,7 @@ class CreateCouponTypeRequest(BaseModel):
         return self
 
 
+# Maps a draft entity to public fields and derives its initial supply counters.
 class CouponTypeResponse(BaseModel):
     id: str
     name: str
@@ -56,6 +58,7 @@ class CouponTypeResponse(BaseModel):
         )
 
 
+# Returns coupon drafts with the pagination metadata used by list clients.
 class PageResponse(BaseModel):
     items: list[CouponTypeResponse]
     total: int
@@ -87,6 +90,7 @@ CouponTypeId = Annotated[
 ]
 
 
+# Accepts a canonical decimal type ID and rejects unexpected request fields.
 class RedeemCouponRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid", strict=True, json_schema_extra={"examples": [{"typeId": "1"}]}
@@ -95,6 +99,7 @@ class RedeemCouponRequest(BaseModel):
     typeId: CouponTypeId
 
 
+# Returns the operation ID and accepted amount so the caller can follow redeem progress.
 class RedeemCouponResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -113,6 +118,7 @@ class RedeemCouponResponse(BaseModel):
     amount: Literal["1"] = "1"
 
 
+# Shapes a public redeem error code and message for API callers.
 class RedeemError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -120,6 +126,7 @@ class RedeemError(BaseModel):
     message: str
 
 
+# Wraps redeem errors in the response envelope used by the route.
 class RedeemErrorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

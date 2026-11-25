@@ -27,6 +27,7 @@ class ConfigurationError(ValueError):
     """A configuration error whose message never includes input values."""
 
 
+# Loads and validates database and logging settings shared by the runtime roles.
 class SharedSettings(BaseModel):
     model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
 
@@ -52,6 +53,7 @@ class SharedSettings(BaseModel):
         return value
 
 
+# Holds the key path and token parameters required by the API JWT signer.
 class JwtSigningSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
@@ -90,6 +92,7 @@ class JwtSigningSettings(BaseModel):
         return value
 
 
+# Groups the API settings for HTTP, authentication, and feature configuration.
 class ApiSettings(SharedSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=3000, ge=1, le=65535)
@@ -157,6 +160,7 @@ class ApiSettings(SharedSettings):
         return value
 
 
+# Loads and validates the RPC URL and chain ID shared by the Worker and Indexer.
 class ChainSettings(SharedSettings):
     rpc_url: SecretStr
     chain_id: int = Field(gt=0)
@@ -170,11 +174,13 @@ class ChainSettings(SharedSettings):
         return value
 
 
+# Extends chain settings with the Worker key management configuration.
 class WorkerSettings(ChainSettings):
     kms_key_arn: SecretStr = Field(min_length=1)
     kms_region: str = Field(min_length=1)
 
 
+# Extends chain settings with finality depth and deployment file configuration.
 class IndexerSettings(ChainSettings):
     finality_depth: int = Field(default=12, ge=1)
     deployment_file: Path | None = None

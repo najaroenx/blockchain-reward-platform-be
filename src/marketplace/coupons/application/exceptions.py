@@ -1,18 +1,22 @@
 from enum import StrEnum
 
 
+# Signals a name conflict when creating a coupon type draft.
 class DuplicateCouponTypeName(Exception):
     pass
 
 
+# Signals that a coupon draft key was reused for different request data.
 class IdempotencyKeyConflict(Exception):
     pass
 
 
+# Signals a lookup for a coupon type draft that does not exist.
 class CouponTypeNotFound(Exception):
     pass
 
 
+# Defines the stable failure codes shared by redeem use cases, adapters, and HTTP.
 class RedeemErrorCode(StrEnum):
     IDEMPOTENCY_KEY_REQUIRED = "IDEMPOTENCY_KEY_REQUIRED"
     VALIDATION_FAILED = "VALIDATION_FAILED"

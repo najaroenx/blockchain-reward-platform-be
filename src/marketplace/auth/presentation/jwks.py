@@ -10,6 +10,7 @@ from marketplace.auth.presentation.router import AuthRoute
 from marketplace.auth.presentation.schemas import ErrorResponse
 
 
+# Shapes a public P-256 key for clients that verify the API's access tokens.
 class PublicJwk(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -22,6 +23,7 @@ class PublicJwk(BaseModel):
     use: Literal["sig"] = "sig"
 
 
+# Wraps the public keys published at the JWKS endpoint.
 class JwksResponse(BaseModel):
     keys: list[PublicJwk]
 

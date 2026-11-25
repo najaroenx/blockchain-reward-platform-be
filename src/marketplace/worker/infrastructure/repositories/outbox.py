@@ -41,6 +41,8 @@ def active_lease(job: ClaimedJob) -> ColumnElement[bool]:
     )
 
 
+# Implements the outbox port in PostgreSQL. Locks rows to claim jobs and checks leases
+# before updating attempts or acknowledging work.
 class WorkerOutbox(OutboxRepository[Connection]):
     def __init__(self, engine: Engine) -> None:
         if engine.dialect.name != "postgresql":

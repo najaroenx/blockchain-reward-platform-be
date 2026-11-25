@@ -12,6 +12,7 @@ from marketplace.infrastructure.operation_models import IdempotencyKey
 from marketplace.infrastructure.sql_idempotency import claim_key
 
 
+# Implements the deposit port with SQL and commits the deposit and replay response together.
 class SqlDeposits(DepositRepository):
     def __init__(self, engine: Engine) -> None:
         self.engine = (

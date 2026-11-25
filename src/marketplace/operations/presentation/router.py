@@ -35,12 +35,14 @@ RETRY_AFTER = {
 }
 
 
+# Carries the HTTP status and public error fields for a rejected operation read.
 class OperationReadFailure(Exception):
     def __init__(self, status: int, code: str, message: str) -> None:
         self.status, self.code, self.message = status, code, message
         super().__init__(message)
 
 
+# Maps authenticated request data into operation reads and translates expected errors to HTTP.
 class OperationRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

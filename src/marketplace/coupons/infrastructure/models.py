@@ -7,6 +7,7 @@ from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 from marketplace.infrastructure.database import Base
 
 
+# Persists off-chain coupon drafts and maps stored values to the Domain draft entity.
 class CouponTypeModel(Base):
     __tablename__ = "coupon_types"
 
@@ -39,6 +40,7 @@ class CouponTypeModel(Base):
         )
 
 
+# Links a draft creation key and request fingerprint to the saved coupon type.
 class CouponTypeIdempotencyKey(Base):
     __tablename__ = "coupon_type_idempotency_keys"
 

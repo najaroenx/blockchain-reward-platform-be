@@ -42,6 +42,7 @@ class CouponHolding:
     as_of_block: int
 
 
+# Represents a coupon type saved by the backend before a chain type has been linked.
 @dataclass(frozen=True)
 class CouponTypeDraft:
     id: str

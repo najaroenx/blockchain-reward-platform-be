@@ -20,6 +20,7 @@ from marketplace.auth.domain.entities.auth import (
 )
 
 
+# Coordinates refresh token rotation through the session store and access token signer.
 class Refresh:
     def __init__(
         self,

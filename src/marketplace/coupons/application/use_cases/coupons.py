@@ -31,6 +31,7 @@ def fingerprint(data: CreateCouponType) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+# Coordinates idempotent creation and paginated reads of coupon type drafts.
 class CouponTypeRegistry:
     def __init__(self, coupon_types: CouponTypeRepository) -> None:
         self.coupon_types = coupon_types
@@ -51,6 +52,7 @@ class CouponTypeRegistry:
         return CouponTypePage(items=items, total=total)
 
 
+# Builds a redeem payload from a verified wallet and deployment, then submits it for admission.
 class RedeemCoupons:
     def __init__(
         self, deployments: CouponDeploymentResolver, admissions: RedeemAdmissionStore

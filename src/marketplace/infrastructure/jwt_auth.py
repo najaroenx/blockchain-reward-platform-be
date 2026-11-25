@@ -15,6 +15,7 @@ class JwtVerificationConfigurationError(ValueError):
     """Invalid verification configuration, without file paths or key contents."""
 
 
+# Signals that an access token could not be accepted by the shared JWT verifier.
 class InvalidAccessToken(Exception):
     pass
 

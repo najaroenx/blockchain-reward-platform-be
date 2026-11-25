@@ -4,6 +4,7 @@ from marketplace.identity import MerchantIdentity
 from marketplace.point_types.domain.entities.point_type import PointTypeDraft
 
 
+# Defines the port for creating or replaying a point type request atomically.
 class PointTypeRepository(ABC):
     @abstractmethod
     def create(
