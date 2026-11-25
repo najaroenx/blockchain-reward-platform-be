@@ -1,3 +1,14 @@
 reference/
 node_modules/
 dist/
+.git
+.env
+.env.*
+.venv/
+.tools/
+graphify-out/
+artifacts/
+**/__pycache__/
+*.db
+*.db-*
+*.sqlite*

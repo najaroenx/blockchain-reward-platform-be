@@ -1,19 +1,96 @@
+name: blockchain-reward-platform-be
+
+x-service-restart: &service-restart "on-failure:3"
+x-external-database: "${REWARD_DATABASE_URL:+yes}"
+
+x-backend: &backend
+  image: "${REWARD_BACKEND_IMAGE:-reward-backend:dev}"
+  pull_policy: never
+  init: true
+
+x-backend-env: &backend-env
+  APP_ENV: development
+  DATABASE_URL: "${REWARD_DATABASE_URL:-postgresql+psycopg://reward:local-development-only@postgres:5432/reward}"
+  LOG_LEVEL: "${LOG_LEVEL:-info}"
+
+x-rpc-env: &rpc-env
+  RPC_URL: "${REWARD_RPC_URL:-http://besu-node:8545}"
+  CHAIN_ID: "${REWARD_CHAIN_ID:-235}"
+
+x-migration-dependency: &migration-dependency
+  migrate:
+    condition: service_completed_successfully
+
 services:
   postgres:
     image: postgres:17-alpine
+    profiles: [local-db]
+    restart: *service-restart
     environment:
-      POSTGRES_DB: reward
       POSTGRES_USER: reward
       POSTGRES_PASSWORD: local-development-only
-    ports:
-      - "127.0.0.1:5432:5432"
+      POSTGRES_DB: reward
     volumes:
       - reward_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U reward -d reward"]
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    <<: *backend
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+
+  api:
+    <<: *backend
+    restart: *service-restart
+    command: ["reward-api"]
+    environment:
+      <<: *backend-env
+      HOST: "0.0.0.0"
+      PORT: "3000"
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: *migration-dependency
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from urllib.request import urlopen; urlopen('http://127.0.0.1:3000/readyz', timeout=2).close()"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *backend
+    command: ["reward-worker", "--check"]
+    environment:
+      <<: [*backend-env, *rpc-env]
+      KMS_KEY_ARN: "${REWARD_KMS_KEY_ARN:-arn:aws:kms:ap-southeast-1:000000000000:key/dev}"
+      KMS_REGION: "${REWARD_KMS_REGION:-ap-southeast-1}"
+    networks: [default, blockchain]
+    depends_on: *migration-dependency
+
+  indexer:
+    <<: *backend
+    command: ["reward-indexer", "--check"]
+    environment:
+      <<: [*backend-env, *rpc-env]
+      FINALITY_DEPTH: "${REWARD_FINALITY_DEPTH:-12}"
+    networks: [default, blockchain]
+    depends_on: *migration-dependency
+
+networks:
+  blockchain:
+    external: true
+    name: "${REWARD_CHAIN_NETWORK:-blockchain-reward-platform_loaffinity-singlenode}"
 
 volumes:
   reward_postgres:

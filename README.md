@@ -227,56 +227,57 @@ Production บังคับให้ตั้งค่า signer ครบแ�
 
 ## PostgreSQL สำหรับ local development
 
-เมื่อ Docker daemon ทำงาน:
+ใช้ PostgreSQL ที่รันอยู่ หรือเปิด PostgreSQL สำหรับ local development แยกด้วย Docker
 
 ```bash
-docker compose up -d postgres
+docker run --detach --name reward-postgres-dev \
+  --env POSTGRES_USER=reward \
+  --env POSTGRES_PASSWORD=local-development-only \
+  --env POSTGRES_DB=reward \
+  --publish 127.0.0.1:5432:5432 \
+  --volume reward-postgres-dev:/var/lib/postgresql/data \
+  postgres:17-alpine
+docker exec reward-postgres-dev pg_isready -h 127.0.0.1 -U reward -d reward
+```
+
+เมื่อ PostgreSQL พร้อม ให้ตั้ง `DATABASE_URL` สำหรับรัน API บนเครื่องโดยตรง
+
+```bash
 export DATABASE_URL='postgresql+psycopg://reward:local-development-only@127.0.0.1:5432/reward'
 .venv/bin/alembic upgrade head
 .venv/bin/reward-api
 ```
 
-Compose เปิด port เฉพาะ loopback และใช้ credential สำหรับ local เท่านั้น
 อย่าใช้คำสั่ง migrations นี้กับฐานข้อมูล production หรือ schema เก่าที่มีข้อมูลโดยยังไม่ review
 ชุดตรวจ auth/migration ผ่าน PostgreSQL 17.11 แล้ว รวม Postman ผ่าน HTTP จริง
 ดูคำสั่งสร้างฐานข้อมูลทดสอบแยกและรันซ้ำใน [merchant login](docs/auth-login.md#repeatable-checks)
 
-### สร้างบัญชีและงานทดสอบสำหรับ Worker
+## รัน Backend ด้วย Docker Compose
 
-ตั้ง `TEST_POSTGRES_URL` เป็น URL ของ PostgreSQL สำหรับทดสอบที่มีสิทธิ์สร้างฐานข้อมูล แล้วรัน
+เว้น `REWARD_DATABASE_URL` ว่างใน `.env` เพื่อให้สคริปต์เปิด PostgreSQL 17 ใน Compose
+และเก็บข้อมูลใน Docker volume `reward_postgres` ฐานข้อมูลนี้เข้าถึงได้จาก Backend containers
 
-```bash
-.venv/bin/python scripts/seed.py
+ถ้ามี PostgreSQL ที่รันแยก ให้ตั้ง `REWARD_DATABASE_URL` ใน `.env` เป็น URL ที่ container เข้าถึงได้
+
+```sh
+REWARD_DATABASE_URL=postgresql+psycopg://reward:local-development-only@postgres.example:5432/reward
 ```
 
-สคริปต์สร้างฐานข้อมูล `reward_seed` และรัน Alembic ให้ ใช้ชื่อฐานข้อมูลนี้ใน `DATABASE_URL`
-เมื่อต้องการเปิด Backend กับข้อมูลตัวอย่าง ดู ID, บัญชี และรหัสผ่านสำหรับทดสอบใน
-[`tests/fixtures/accounts.json`](tests/fixtures/accounts.json) ข้อมูลมีร้าน `ACTIVE` และ `PENDING`,
-ลูกค้าทดสอบ, wallet ร้านแบบ mock, point type `REQUESTED` พร้อมงานใน outbox และ coupon draft
+ใช้ Docker Compose และ Python 3 เรียกสคริปต์จาก root ของ repo Backend
 
-เพื่อคืนสภาพตั้งต้น ให้ปิด process ที่ต่อฐานข้อมูลตัวอย่าง แล้วรัน
-`.venv/bin/python scripts/seed.py --reset` คำสั่งนี้สร้างฐานข้อมูลที่สคริปต์เป็นเจ้าของขึ้นใหม่
-
-### Deploy contracts และบันทึก block เริ่มต้น
-
-เตรียม repo `blockchain-coupon-marketplace-loyalty` และ `blockchain_point_loyalty` ไว้ข้าง repo นี้
-พร้อม dependencies จาก lockfile ของ revision ที่ใช้ สคริปต์ build จาก commit ที่ pin ไว้ใน ABI manifest
-และจาก [Point Factory PR #1](https://github.com/subtawe/blockchain_point_loyalty/pull/1)
-
-เปิด Hardhat node สำหรับพัฒนา แล้วรันจาก repo Backend
-
-```bash
-export REWARD_DEPLOY_RPC_URL=http://127.0.0.1:8545
-.venv/bin/python scripts/deploy.py --network hardhat
+```sh
+./start-backend.sh
+curl --fail --retry 15 --retry-all-errors --retry-delay 1 http://127.0.0.1:3000/readyz
 ```
 
-เลือก `besu` สำหรับ chain ID `235` หรือ `dlp` สำหรับ DLP testnet ที่ chain ID `116687680`
-ตั้ง `REWARD_DEPLOY_PRIVATE_KEY` ใน environment ของ deployer เมื่อ RPC ใช้บัญชีที่เซ็นจากเครื่องนี้
-ผล deploy อยู่ที่ `deployments/<network>.json` ระบุ chain, revision, contract addresses, receipts และ
-`deployBlock` รันซ้ำกับไฟล์เดิมเพื่อตรวจ deployment เดิม ใช้ `--record` กับชื่อไฟล์ใหม่เมื่อจะ deploy ชุดใหม่
+Compose build image จาก source ใน checkout นี้ แล้วรัน Alembic กับฐานข้อมูลที่เลือกก่อนเปิด
+API, Worker และ Indexer โดย Worker กับ Indexer รัน `--check` แล้วจบเมื่อ config ผ่าน
+สคริปต์เตรียม Docker network
+`blockchain-reward-platform_loaffinity-singlenode` ให้ทั้งสอง process
+เรียก Besu ที่ `http://besu-node:8545` ตั้ง `REWARD_CHAIN_NETWORK` หรือ
+`REWARD_RPC_URL` ใน `.env` ถ้าชื่อ network หรือ RPC ของทีมต่างจากค่าเริ่มต้น
 
-ตั้ง `DEPLOYMENT_FILE` ใน `.env.indexer` ให้ชี้ไปยังไฟล์นี้ `reward-indexer --check` จะตรวจ chain ID
-และรายงาน block เริ่มต้นสำหรับตัวอ่าน chain
+ปิดชุด Backend รวมถึง PostgreSQL local ด้วย `docker compose --profile local-db down`
 
 ## ตรวจคุณภาพ
 

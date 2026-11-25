@@ -99,10 +99,10 @@ The 2026-11-13 run passed 109 tests and all quality checks. PostgreSQL auth/migr
 passed 38 tests. Newman passed 26 requests and 107 assertions on both SQLite and PostgreSQL,
 including verification of the successful token against the public HTTP JWKS.
 
-PostgreSQL verification commands create disposable databases on the supplied local server:
+Start [local PostgreSQL](../README.md#postgresql-สำหรับ-local-development) before running the checks.
+The checks create disposable databases on that server.
 
 ```bash
-docker compose up -d --wait postgres
 export TEST_POSTGRES_URL='postgresql+psycopg://reward:local-development-only@127.0.0.1:5432/reward'
 .venv/bin/pytest tests/integration/auth tests/integration/test_migrations.py -q
 .venv/bin/python scripts/verify_login_api.py --newman newman --postgres

@@ -103,11 +103,10 @@ Additional tests cover real ES256 refresh JWTs, all four 401 errors, cookie clea
 rollback, refresh-hash collision, owner changes while signing, twenty concurrent reuses, and replay
 while a descendant is signing. The reference pack remains unchanged.
 
-Commands:
+Start [local PostgreSQL](../README.md#postgresql-สำหรับ-local-development) before running the checks.
 
 ```bash
 .venv/bin/python scripts/verify.py
-docker compose up -d --wait postgres
 export TEST_POSTGRES_URL='postgresql+psycopg://reward:local-development-only@127.0.0.1:5432/reward'
 .venv/bin/pytest tests/integration/auth tests/integration/test_migrations.py -q
 .venv/bin/python scripts/verify_login_api.py --newman newman --postgres
