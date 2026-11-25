@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select
 
 from marketplace.auth.application.dto import AccessClaims, CustomerAccessClaims
-from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.domain.entities.auth import LoginPolicy
 from marketplace.auth.infrastructure.models import (
     AuthEvent,
     AuthSession,

@@ -28,7 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import make_url
 
 from marketplace.auth.application.dto import AccessClaims, CustomerAccessClaims
-from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.domain.entities.auth import LoginPolicy
 from marketplace.auth.infrastructure.models import AuthSession, Merchant, MerchantAdmin
 from marketplace.auth.infrastructure.passwords import Argon2PasswordVerifier
 from marketplace.auth.infrastructure.signing import Es256TokenSigner

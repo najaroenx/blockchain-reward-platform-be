@@ -1,4 +1,4 @@
-from marketplace.infrastructure.idempotency import canonical_json, fingerprint
+from marketplace.idempotency import canonical_json, fingerprint
 
 
 def test_fingerprint_matches_spec_001_javascript_sha256_vector() -> None:

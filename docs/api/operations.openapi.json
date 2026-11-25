@@ -78,6 +78,23 @@
         "title": "OperationEventView",
         "type": "object"
       },
+      "OperationKind": {
+        "description": "Operation kinds shared by the Operations API and Worker.",
+        "enum": [
+          "MERCHANT_PROVISION",
+          "POINT_TYPE_CREATE",
+          "POINT_TRANSFER",
+          "COUPON_TYPE_CREATE",
+          "COUPON_ISSUE",
+          "COUPON_REDEEM",
+          "LISTING_CREATE",
+          "LISTING_DELETE",
+          "LISTING_BUY",
+          "THB_MINT"
+        ],
+        "title": "OperationKind",
+        "type": "string"
+      },
       "OperationPage": {
         "properties": {
           "items": {
@@ -331,19 +348,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "MERCHANT_PROVISION",
-                    "POINT_TYPE_CREATE",
-                    "POINT_TRANSFER",
-                    "COUPON_TYPE_CREATE",
-                    "COUPON_ISSUE",
-                    "COUPON_REDEEM",
-                    "LISTING_CREATE",
-                    "LISTING_DELETE",
-                    "LISTING_BUY",
-                    "THB_MINT"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/OperationKind"
                 },
                 {
                   "type": "null"

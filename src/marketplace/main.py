@@ -11,13 +11,13 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from marketplace.auth.application.ports import SigningKeyPublisher
-from marketplace.auth.application.refresh import Refresh
-from marketplace.auth.application.use_cases import Login
-from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.application.interfaces.auth import SigningKeyPublisher
+from marketplace.auth.application.use_cases.login import Login
+from marketplace.auth.application.use_cases.refresh import Refresh
+from marketplace.auth.domain.entities.auth import LoginPolicy
 from marketplace.auth.infrastructure.passwords import Argon2PasswordVerifier
-from marketplace.auth.infrastructure.refresh_repository import SqlRefreshStore
-from marketplace.auth.infrastructure.repository import SqlLoginStore
+from marketplace.auth.infrastructure.repositories.login import SqlLoginStore
+from marketplace.auth.infrastructure.repositories.refresh import SqlRefreshStore
 from marketplace.auth.infrastructure.signing import Es256TokenSigner, UnavailableTokenSigner
 from marketplace.auth.presentation.jwks import create_router as create_jwks_router
 from marketplace.auth.presentation.refresh import create_router as create_refresh_router
@@ -29,10 +29,10 @@ from marketplace.coupons.application.exceptions import (
     DuplicateCouponTypeName,
     IdempotencyKeyConflict,
 )
-from marketplace.coupons.application.use_cases import CouponTypeRegistry
+from marketplace.coupons.application.use_cases.coupons import CouponTypeRegistry
 from marketplace.coupons.infrastructure.jwt_auth import JwtWalletAuthenticator
 from marketplace.coupons.infrastructure.mock_auth import MockTokenAuthenticator
-from marketplace.coupons.infrastructure.repository import SqlCouponTypeRepository
+from marketplace.coupons.infrastructure.repositories.coupon_types import SqlCouponTypeRepository
 from marketplace.coupons.presentation.router import (
     RedeemDependencies,
     create_coupon_types_router,
@@ -40,26 +40,35 @@ from marketplace.coupons.presentation.router import (
 from marketplace.coupons.presentation.router import (
     create_router as create_redeem_router,
 )
-from marketplace.deposits.payments import MockDepositPayments, PaymentProvider
-from marketplace.deposits.router import create_router as create_deposit_router
+from marketplace.deposits.application.interfaces.payments import PaymentProvider
+from marketplace.deposits.application.use_cases.deposits import Deposits
+from marketplace.deposits.infrastructure.payments import MockDepositPayments
+from marketplace.deposits.infrastructure.repositories.deposits import SqlDeposits
+from marketplace.deposits.presentation.router import create_router as create_deposit_router
+from marketplace.identity import MerchantIdentity
 from marketplace.infrastructure.database import Database
-from marketplace.infrastructure.jwt_auth import (
-    InvalidAccessToken,
-    JwtMerchantAuthenticator,
-    MerchantIdentity,
-)
+from marketplace.infrastructure.jwt_auth import InvalidAccessToken, JwtMerchantAuthenticator
 from marketplace.listings.application.exceptions import (
     ListingNotFound,
     ProjectionUnavailable,
 )
-from marketplace.listings.application.use_cases import Catalog
-from marketplace.listings.infrastructure.repository import SqlListingReader
+from marketplace.listings.application.use_cases.catalog import Catalog
+from marketplace.listings.infrastructure.repositories.listings import SqlListingReader
 from marketplace.listings.presentation.router import create_router as create_listings_router
 from marketplace.logging_config import configure_logging
-from marketplace.merchants.router import create_router as create_merchants_router
-from marketplace.merchants.wallets import MockWalletProvider, WalletProvider
-from marketplace.operations.router import create_router as create_operations_router
-from marketplace.point_types.router import create_router as create_point_types_router
+from marketplace.merchants.application.interfaces.wallets import WalletProvider
+from marketplace.merchants.application.use_cases.signup import SignupMerchant
+from marketplace.merchants.domain.entities.rate_limit import SignupRateLimit
+from marketplace.merchants.infrastructure.credentials import SignupCredentials
+from marketplace.merchants.infrastructure.repositories.merchants import SqlMerchantSignup
+from marketplace.merchants.infrastructure.wallets import MockWalletProvider
+from marketplace.merchants.presentation.router import create_router as create_merchants_router
+from marketplace.operations.application.use_cases.read import ReadOperations
+from marketplace.operations.infrastructure.repositories.operations import SqlOperationReader
+from marketplace.operations.presentation.router import create_router as create_operations_router
+from marketplace.point_types.application.use_cases.create import CreatePointTypeRequest
+from marketplace.point_types.infrastructure.repositories.point_types import SqlPointTypes
+from marketplace.point_types.presentation.router import create_router as create_point_types_router
 from marketplace.settings import ApiSettings, load_settings
 
 
@@ -300,13 +309,37 @@ def create_app(
         return service
 
     app.include_router(create_refresh_router(provide_refresh))
+
+    def provide_deposits(request: Request) -> Deposits:
+        return Deposits(SqlDeposits(request.app.state.database.engine), deposit_provider)
+
     app.include_router(
-        create_deposit_router(deposit_auth if read_identity else None, deposit_provider)
+        create_deposit_router(deposit_auth if read_identity else None, provide_deposits)
     )
-    app.include_router(create_operations_router(operation_auth))
-    app.include_router(create_merchants_router(merchant_wallets, config.merchant_signup_per_minute))
+
+    def provide_operations(request: Request) -> ReadOperations:
+        return ReadOperations(SqlOperationReader(request.app.state.database.sessions))
+
+    app.include_router(create_operations_router(operation_auth, provide_operations))
+
+    signup_limiter = SignupRateLimit(config.merchant_signup_per_minute)
+    signup_credentials = SignupCredentials()
+
+    def provide_signup(request: Request) -> SignupMerchant:
+        return SignupMerchant(
+            SqlMerchantSignup(request.app.state.database.engine),
+            signup_credentials,
+            merchant_wallets,
+            signup_limiter,
+        )
+
+    app.include_router(create_merchants_router(provide_signup))
     if config.point_type_admission_enabled:
-        app.include_router(create_point_types_router(read_identity))
+
+        def provide_point_types(request: Request) -> CreatePointTypeRequest:
+            return CreatePointTypeRequest(SqlPointTypes(request.app.state.database.engine))
+
+        app.include_router(create_point_types_router(read_identity, provide_point_types))
     return app
 
 

@@ -3,11 +3,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from marketplace.listings.infrastructure import repository
 from marketplace.listings.infrastructure.models import (
     ListingProjection,
     ProjectionCheckpoint,
 )
+from marketplace.listings.infrastructure.repositories import listings as repository
 from marketplace.main import create_app
 from marketplace.settings import ApiSettings
 

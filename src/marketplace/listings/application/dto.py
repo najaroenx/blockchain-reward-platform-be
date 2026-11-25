@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from marketplace.listings.domain.entities import Listing
+from marketplace.listings.domain.entities.listing import Listing
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, SecretStr
 
 from marketplace.auth.application.exceptions import AuthErrorCode
-from marketplace.auth.domain.entities import MerchantStatus, normalize_email
+from marketplace.auth.domain.entities.auth import MerchantStatus, normalize_email
 
 
 def normalized_email(value: object) -> object:

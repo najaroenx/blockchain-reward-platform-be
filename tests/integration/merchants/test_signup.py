@@ -15,8 +15,8 @@ from sqlalchemy import event, func, insert, select, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from marketplace.idempotency import fingerprint
 from marketplace.infrastructure.database import Database
-from marketplace.infrastructure.idempotency import fingerprint
 from marketplace.infrastructure.operation_models import (
     IdempotencyKey,
     Operation,
@@ -26,8 +26,8 @@ from marketplace.infrastructure.operation_models import (
     Outbox,
 )
 from marketplace.main import create_app
-from marketplace.merchants.models import Merchant, MerchantAdmin, Wallet
-from marketplace.merchants.wallets import MockWalletProvider
+from marketplace.merchants.infrastructure.models import Merchant, MerchantAdmin, Wallet
+from marketplace.merchants.infrastructure.wallets import MockWalletProvider
 from marketplace.settings import ApiSettings
 
 URL = "/v1/merchants"

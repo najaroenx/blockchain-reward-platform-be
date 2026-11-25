@@ -1,0 +1,9 @@
+from marketplace.indexer.application.interfaces.deployments import DeploymentReader
+
+
+class CheckDeployment:
+    def __init__(self, reader: DeploymentReader) -> None:
+        self.reader = reader
+
+    def start_block(self, chain_id: int) -> int:
+        return self.reader.read().block_for(chain_id)

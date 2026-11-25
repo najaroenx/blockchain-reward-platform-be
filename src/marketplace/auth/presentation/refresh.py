@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from marketplace.auth.application.dto import RefreshCommand
 from marketplace.auth.application.exceptions import AuthFailure, AuthRefusal
-from marketplace.auth.application.refresh import Refresh
+from marketplace.auth.application.use_cases.refresh import Refresh
 from marketplace.auth.presentation.cookies import clear_refresh_cookie, set_refresh_cookie
 from marketplace.auth.presentation.router import AuthRoute
 from marketplace.auth.presentation.schemas import ErrorResponse

@@ -22,7 +22,7 @@ from marketplace.coupons.application.dto import (
     RedeemCouponPayload,
     RedeemCouponResult,
 )
-from marketplace.coupons.application.use_cases import RedeemCoupons
+from marketplace.coupons.application.use_cases.coupons import RedeemCoupons
 from marketplace.coupons.infrastructure.jwt_auth import (
     JwtVerificationConfigurationError,
     JwtWalletAuthenticator,

@@ -13,9 +13,13 @@ from starlette.exceptions import HTTPException
 
 from marketplace.auth.application.dto import LoginCommand
 from marketplace.auth.application.exceptions import AuthFailure, AuthRefusal
-from marketplace.auth.application.ports import PasswordVerifier, SigningKeyPublisher, TokenSigner
-from marketplace.auth.application.use_cases import Login
-from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.application.interfaces.auth import (
+    PasswordVerifier,
+    SigningKeyPublisher,
+    TokenSigner,
+)
+from marketplace.auth.application.use_cases.login import Login
+from marketplace.auth.domain.entities.auth import LoginPolicy
 from marketplace.auth.presentation.cookies import set_refresh_cookie
 from marketplace.auth.presentation.schemas import (
     ErrorDetail,

@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from marketplace.auth.domain.entities import MerchantStatus
+from marketplace.auth.domain.entities.auth import MerchantStatus
 from marketplace.infrastructure.database import Base
 
 

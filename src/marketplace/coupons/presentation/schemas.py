@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from marketplace.coupons.application.exceptions import RedeemErrorCode
-from marketplace.coupons.domain.entities import CouponTypeDraft
+from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 
 
 class CreateCouponTypeRequest(BaseModel):

@@ -20,8 +20,8 @@ from sqlalchemy import Connection, event, insert, select, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from marketplace.idempotency import fingerprint
 from marketplace.infrastructure.database import Database
-from marketplace.infrastructure.idempotency import fingerprint
 from marketplace.infrastructure.operation_history import advance_operation, record_operation_created
 from marketplace.infrastructure.operation_models import (
     IdempotencyKey,
@@ -30,8 +30,8 @@ from marketplace.infrastructure.operation_models import (
     Outbox,
 )
 from marketplace.main import create_app
-from marketplace.merchants.models import Merchant, MerchantAdmin, Wallet
-from marketplace.point_types.models import PointType
+from marketplace.merchants.infrastructure.models import Merchant, MerchantAdmin, Wallet
+from marketplace.point_types.infrastructure.models import PointType
 from marketplace.settings import ApiSettings
 
 URL = "/v1/point-types"

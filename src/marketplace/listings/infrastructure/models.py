@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from marketplace.infrastructure.database import Base
-from marketplace.listings.domain.entities import Listing
+from marketplace.listings.domain.entities.listing import Listing
 
 
 class CouponExpiryTimestamp(TypeDecorator[int]):

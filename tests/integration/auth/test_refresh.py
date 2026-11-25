@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select
 
 from marketplace.auth.application.dto import AccessClaims, CustomerAccessClaims
-from marketplace.auth.domain.entities import LoginPolicy
+from marketplace.auth.domain.entities.auth import LoginPolicy
 from marketplace.auth.infrastructure.models import (
     AuthEvent,
     AuthSession,
@@ -481,7 +481,9 @@ def test_refresh_hash_collision_rolls_back_without_being_treated_as_parent_reuse
 ) -> None:
     f = refresh_app
     token = login(f)
-    monkeypatch.setattr("marketplace.auth.application.refresh.token_urlsafe", lambda _: token)
+    monkeypatch.setattr(
+        "marketplace.auth.application.use_cases.refresh.token_urlsafe", lambda _: token
+    )
     response = refresh(f, token)
     assert response.status_code == 503
     with f.db.sessions() as session:

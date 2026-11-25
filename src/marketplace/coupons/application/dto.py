@@ -5,7 +5,7 @@ admission adapters.
 from dataclasses import dataclass, field
 from typing import Literal
 
-from marketplace.coupons.domain.entities import CouponTypeDraft
+from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 
 
 @dataclass(frozen=True)
