@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-from marketplace.auth.domain.entities import MerchantSubject
+from marketplace.auth.domain.entities.auth import MerchantSubject
 
 
 @dataclass(frozen=True)

@@ -1,8 +1,10 @@
 from argon2 import PasswordHasher, Type, extract_parameters
 from argon2.exceptions import Argon2Error, InvalidHashError
 
+from marketplace.auth.application.interfaces.auth import PasswordVerifier
 
-class Argon2PasswordVerifier:
+
+class Argon2PasswordVerifier(PasswordVerifier):
     def __init__(self, hasher: PasswordHasher | None = None) -> None:
         self.hasher = hasher or PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4)
         self.dummy = self.hasher.hash("dummy-login-verification")

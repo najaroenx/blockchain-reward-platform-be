@@ -1,13 +1,9 @@
 from datetime import UTC, datetime
-from typing import Literal
 
 from sqlalchemy import Connection, insert, select, update
 
 from marketplace.infrastructure.operation_models import Operation, OperationEvent
-
-OperationStatus = Literal[
-    "PENDING", "SUBMITTED", "CONFIRMED", "FINALIZED", "CHAIN_REVERTED", "ORPHANED", "MANUAL_REVIEW"
-]
+from marketplace.operation_status import OperationStatus
 
 
 def record_operation_created(

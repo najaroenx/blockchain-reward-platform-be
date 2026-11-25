@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from marketplace.coupons.domain.entities import CouponTypeDraft
+from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 from marketplace.infrastructure.database import Base
 
 

@@ -1,6 +1,5 @@
 import json
 from base64 import urlsafe_b64encode
-from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 
@@ -9,6 +8,8 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
+from marketplace.identity import MerchantIdentity
+
 
 class JwtVerificationConfigurationError(ValueError):
     """Invalid verification configuration, without file paths or key contents."""
@@ -16,12 +17,6 @@ class JwtVerificationConfigurationError(ValueError):
 
 class InvalidAccessToken(Exception):
     pass
-
-
-@dataclass(frozen=True)
-class MerchantIdentity:
-    user_id: str
-    merchant_id: str
 
 
 class JwtMerchantAuthenticator:

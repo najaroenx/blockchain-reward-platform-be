@@ -3,7 +3,7 @@ from eth_abi.exceptions import DecodingError, EncodingError
 from eth_utils.crypto import keccak
 
 from marketplace.coupons.application.dto import RedeemCouponPayload
-from marketplace.coupons.application.execution import (
+from marketplace.coupons.application.interfaces.execution import (
     ChainLog,
     ReceiptCorrelationError,
     RedeemReceipt,

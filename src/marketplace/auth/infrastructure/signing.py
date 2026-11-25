@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 from marketplace.auth.application.dto import AccessClaims, CustomerAccessClaims, SigningPublicKey
 from marketplace.auth.application.exceptions import AuthFailure, AuthRefusal
+from marketplace.auth.application.interfaces.auth import SigningKeyPublisher, TokenSigner
 
 
 class SigningConfigurationError(ValueError):
@@ -21,7 +22,7 @@ def base64url(value: bytes) -> str:
     return urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
 
 
-class Es256TokenSigner:
+class Es256TokenSigner(TokenSigner, SigningKeyPublisher):
     def __init__(self, private_key_file: Path, *, issuer: str, audience: str) -> None:
         try:
             key = load_pem_private_key(private_key_file.read_bytes(), password=None)
@@ -63,7 +64,7 @@ class Es256TokenSigner:
         return (self._public,)
 
 
-class UnavailableTokenSigner:
+class UnavailableTokenSigner(TokenSigner, SigningKeyPublisher):
     def sign(self, claims: AccessClaims | CustomerAccessClaims) -> str:
         raise AuthFailure(AuthRefusal("AUTH_UNAVAILABLE"))
 

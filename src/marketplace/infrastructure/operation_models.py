@@ -181,6 +181,40 @@ class Outbox(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class WorkerAttempt(Base):
+    __tablename__ = "worker_attempt"
+    __table_args__ = (
+        UniqueConstraint("outbox_id", "attempt_no", name="uq_worker_attempt_number"),
+        Index(
+            "uq_worker_attempt_active",
+            "outbox_id",
+            unique=True,
+            postgresql_where=text("finished_at IS NULL"),
+            sqlite_where=text("finished_at IS NULL"),
+        ),
+        CheckConstraint("attempt_no > 0", name="ck_worker_attempt_number"),
+        CheckConstraint("outcome IN ('SUCCEEDED', 'RETRY')", name="ck_worker_attempt_outcome"),
+        CheckConstraint(
+            "(finished_at IS NULL) = (outcome IS NULL)", name="ck_worker_attempt_completion"
+        ),
+        CheckConstraint(
+            "COALESCE(outcome = 'RETRY', false) = (retry_at IS NOT NULL)",
+            name="ck_worker_attempt_retry",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    outbox_id: Mapped[str] = mapped_column(ForeignKey("outbox.id"))
+    attempt_no: Mapped[int] = mapped_column(Integer)
+    worker_id: Mapped[str] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    lease_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[str | None] = mapped_column(String(16))
+    retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_type: Mapped[str | None] = mapped_column(String(64))
+
+
 class OperationStep(Base):
     __tablename__ = "operation_step"
     __table_args__ = (

@@ -12,8 +12,11 @@ from sqlalchemy import event, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from marketplace.coupons.application.dto import AuthenticatedWallet, CouponDeployment
-from marketplace.coupons.application.use_cases import RedeemCoupons
-from marketplace.coupons.infrastructure.admission import REDEEM_ENDPOINT, SqlRedeemAdmissionStore
+from marketplace.coupons.application.use_cases.coupons import RedeemCoupons
+from marketplace.coupons.infrastructure.repositories.admission import (
+    REDEEM_ENDPOINT,
+    SqlRedeemAdmissionStore,
+)
 from marketplace.coupons.presentation.router import RedeemDependencies
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.operation_history import advance_operation

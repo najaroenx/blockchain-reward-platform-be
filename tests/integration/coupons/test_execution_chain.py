@@ -20,18 +20,24 @@ from marketplace.coupons.application.dto import (
     RedeemCouponPayload,
 )
 from marketplace.coupons.application.exceptions import RedeemErrorCode, RedeemFailure
-from marketplace.coupons.application.execution import (
+from marketplace.coupons.application.interfaces.coupons import CouponDeploymentResolver
+from marketplace.coupons.application.interfaces.execution import (
     ChainLog,
     ReceiptCorrelationError,
     RedeemReceipt,
     SignedRedeem,
 )
-from marketplace.coupons.application.use_cases import RedeemCoupons
-from marketplace.coupons.infrastructure.admission import SqlRedeemAdmissionStore, normalized_payload
-from marketplace.coupons.infrastructure.execution_store import SqlRedeemExecutionStore
+from marketplace.coupons.application.use_cases.check_active import CheckCouponActive
+from marketplace.coupons.application.use_cases.coupons import RedeemCoupons
 from marketplace.coupons.infrastructure.receipts import CODE_TOPIC, REDEEMED_TOPIC
+from marketplace.coupons.infrastructure.repositories.activity import RpcCouponActivityReader
+from marketplace.coupons.infrastructure.repositories.admission import (
+    SqlRedeemAdmissionStore,
+    normalized_payload,
+)
+from marketplace.coupons.infrastructure.repositories.execution import SqlRedeemExecutionStore
 from marketplace.coupons.presentation.router import RedeemDependencies
-from marketplace.indexer.redeem import RedeemProjector
+from marketplace.indexer.application.use_cases.redeem import RedeemProjector
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.operation_models import (
     ChainEvent,
@@ -42,7 +48,7 @@ from marketplace.infrastructure.operation_models import (
 )
 from marketplace.main import create_app
 from marketplace.settings import ApiSettings
-from marketplace.worker.redeem import RedeemHandler
+from marketplace.worker.application.use_cases.redeem import RedeemHandler
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("REDEEM_CHAIN_WORKSPACE"),
@@ -173,6 +179,31 @@ def chain() -> Iterator[LocalChain]:
         yield bridge
     finally:
         bridge.close()
+
+
+def test_coupon_active_at_both_contract_boundaries(chain: LocalChain) -> None:
+    chain.setup(scenario="not-started")
+
+    class LocalCouponDeployment(CouponDeploymentResolver):
+        def resolve(self, type_id: int) -> CouponDeployment:
+            return CouponDeployment(int(chain.info["chainId"]), chain.info["coupon"])
+
+    check = CheckCouponActive(
+        LocalCouponDeployment(),
+        RpcCouponActivityReader(
+            lambda method, params: chain.rpc("couponView", rpcMethod=method, params=params)
+        ),
+    )
+    start, expire = chain.rpc("couponDates", typeId=1)
+    for timestamp, active in (
+        (start - 1, False),
+        (start, True),
+        (expire, True),
+        (expire + 1, False),
+    ):
+        chain.rpc("mine", timestamp=timestamp)
+        assert check.execute(1) is active
+        assert check.execute(999) is False
 
 
 @dataclass

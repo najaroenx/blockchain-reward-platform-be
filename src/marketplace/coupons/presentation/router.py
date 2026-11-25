@@ -15,7 +15,7 @@ from marketplace.coupons.application.dto import (
     RedeemCouponCommand,
 )
 from marketplace.coupons.application.exceptions import RedeemErrorCode, RedeemFailure
-from marketplace.coupons.application.use_cases import CouponTypeRegistry, RedeemCoupons
+from marketplace.coupons.application.use_cases.coupons import CouponTypeRegistry, RedeemCoupons
 from marketplace.coupons.presentation.errors import error_response, openapi_error_responses
 from marketplace.coupons.presentation.schemas import (
     CouponTypeResponse,

@@ -84,7 +84,7 @@ amount เป็น 1 แต่ยังไม่มี production adapters ส�
 | กลุ่มหลัก | ประเภทของโค้ด เช่น domain หรือ application | ความสามารถของระบบ เช่น listings หรือ coupons |
 | ดูโค้ดประเภทเดียวกัน | อยู่ใต้ layer เดียวกัน | กระจายตาม feature |
 | แก้หนึ่ง feature | เปิดหลาย layer ที่ระดับ package | เปิด layers ภายใน feature เดียว |
-| เพิ่ม feature | เพิ่มโฟลเดอร์ย่อยในแต่ละ layer ที่ต้องใช้ | เพิ่ม feature แล้วสร้าง layers ตามที่มีงานจริง |
+| เพิ่ม feature | เพิ่มโฟลเดอร์ย่อยในแต่ละ layer ที่ต้องใช้ | เพิ่ม feature พร้อมสี่เลเยอร์ตามมาตรฐาน |
 | แบ่งความรับผิดชอบในทีม | กำหนดเจ้าของหลาย path ต่อ feature | กำหนดเจ้าของที่โฟลเดอร์ feature ได้ |
 | สิ่งที่ต้องระวัง | แต่ละ layer รวมหลายเรื่องจนหาโค้ดยาก | Features เรียกข้ามกันจนขอบเขตความเป็นเจ้าของไม่ชัด |
 | ส่วนกลาง | แยก technical utilities ได้ | แยก technical utilities ได้เหมือนกัน |
@@ -97,12 +97,12 @@ amount เป็น 1 แต่ยังไม่มี production adapters ส�
 
 | สิ่งที่เขียน | Layer | ตัวอย่างตำแหน่งใน feature |
 | --- | --- | --- |
-| Entity และข้อมูลธุรกิจ | Domain | `listings/domain/entities.py` |
-| Use case และการประสานขั้นตอน | Application | `listings/application/use_cases.py` |
-| Interface ที่ use case ต้องใช้ | Application | `listings/application/ports.py` |
+| Entity และข้อมูลธุรกิจ | Domain | `listings/domain/entities/listing.py` |
+| Use case และการประสานขั้นตอน | Application | `listings/application/use_cases/catalog.py` |
+| Interface ที่ use case ต้องใช้ | Application | `listings/application/interfaces/listings.py` |
 | Query DTO และผลลัพธ์ use case | Application | `listings/application/dto.py` |
 | ORM model ที่แทนตาราง | Infrastructure | `listings/infrastructure/models.py` |
-| SQL, query, join และการบันทึกข้อมูล | Infrastructure | `listings/infrastructure/repository.py` |
+| SQL, query, join และการบันทึกข้อมูล | Infrastructure | `listings/infrastructure/repositories/listings.py` |
 | Request/response models และ HTTP validation | Presentation | `listings/presentation/schemas.py` |
 | HTTP routes | Presentation | `listings/presentation/router.py` |
 
@@ -133,17 +133,10 @@ Application ขอข้อมูลผ่าน port ส่วน Infrastructur
 | JSON logging และ secret redaction | ข้อมูลเหตุการณ์ที่ feature ต้องการบันทึก |
 | ABI reference assets ที่หลาย feature ใช้ | Adapter ที่เรียกฟังก์ชัน contract สำหรับ feature นั้น |
 
-ตัวอย่างการใช้ database เดียวกัน:
-
-```text
-listings/infrastructure/repository.py ─┐
-                                     ├─ ใช้ Session จาก infrastructure/database.py
-coupons/infrastructure/repository.py ──┘
-```
-
-ฝั่ง coupons ในตัวอย่างนี้เป็นตำแหน่งสำหรับ implementation ในอนาคต
-ไม่จำเป็นต้องมี database หรือ connection pool แยกต่อ feature แต่แต่ละ feature ยังเป็นเจ้าของ
-models และ queries ของตัวเอง
+`SqlListingReader` และ `SqlCouponTypeRepository` ใช้ session ที่สร้างจาก
+`infrastructure/database.py` แต่ละ repository ดูแล models และ queries ของ feature ตัวเอง
+พอร์ตประกาศด้วย `abc.ABC` ใน `application/interfaces/` และ adapter สืบทอด port ที่ implement
+ดู [Development guidelines](../README.md#development-guidelines) สำหรับมาตรฐานของ feature ใหม่
 
 แนวทางสำหรับโปรเจกต์นี้:
 

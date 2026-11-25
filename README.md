@@ -1,8 +1,12 @@
 # Blockchain Reward Platform — Python backend
 
-Backend สำหรับ coupon marketplace บน EVM ใช้ Python 3.12, FastAPI, Pydantic,
+Backend สำหรับตลาดคูปองและแต้มสะสมบน EVM ใช้ Python 3.12, FastAPI, Pydantic,
 SQLAlchemy, Alembic และ PostgreSQL ใช้ `src/marketplace/` แบบ Hybrid Feature-based
 แยก feature ก่อน แล้วแบ่ง layers ภายใน และรันเป็น modular monolith
+
+`reward-api` รับคำขอ HTTP และอ่านข้อมูลที่บันทึกไว้ `reward-worker` ประมวลผลงานจากคิว
+ส่วน `reward-indexer` เป็น entry point สำหรับอ่านเหตุการณ์บน chain เพื่ออัปเดตข้อมูลที่ API ใช้อ่าน
+ดู [กติกาการพัฒนา](#development-guidelines) ก่อนเพิ่มหรือแก้ feature
 
 สถานะ: API, config แยก process, logging, database migrations และ catalog สำหรับอ่าน projection
 ใช้งานได้ ส่วน CLI worker/indexer **ยังไม่เปิด execution production**
@@ -65,8 +69,16 @@ API และ indexer ปฏิเสธ KMS variables ทั้งจากไ�
 .venv/bin/reward-indexer --check
 ```
 
-สองคำสั่งนี้ตรวจ config เท่านั้น ไม่ได้ตรวจว่า RPC/KMS ติดต่อได้จริง ไม่เชื่อม queue
-และไม่สร้างข้อมูล projection ถ้ารันโดยไม่มี `--check` จะหยุดพร้อมอธิบายสิ่งที่ยังไม่ได้เปิดใช้
+`--check` ตรวจรูปแบบ config และรายงาน chain ID ของแต่ละ process
+
+Worker runtime ของ #150 อ่าน PostgreSQL outbox เฉพาะ `operation.kind` ที่ลงทะเบียนใน
+`marketplace.worker.main.main(handlers=...)` ตัวเรียกส่ง mapping จากชนิด operation ไปยัง handler
+ที่รับ `(connection, job)` โดยเขียนผลผ่าน connection ที่ส่งให้ เพื่อ commit พร้อมการรับงานสำเร็จ
+Worker หลาย process จองงานแยกกันด้วย `FOR UPDATE SKIP LOCKED` และบันทึก lease กับ retry ใน
+`worker_attempt` งานที่ lease หมดอายุรอการคืนคิวใน #153 ส่วนการเซ็นและส่งธุรกรรมอยู่ใน #151 และ #152
+
+ตั้ง `TEST_POSTGRES_URL` แล้วรัน `.venv/bin/pytest -q tests/integration/test_worker_outbox.py`
+เพื่อทดสอบการหยิบงาน, retry และต่ออายุ lease บน PostgreSQL
 
 ## Catalog API ที่มีในรอบนี้
 
@@ -297,64 +309,45 @@ uint256 precision, config precedence, role secrets, redacted logs, rollback แ�
 ส่วน `coupons` มีทั้ง coupon-type draft API (CRUD ในฐานข้อมูล ปิดด้วยค่าเริ่มต้น) และ route, DTO,
 use case สำหรับ redeem admission โดย redeem ยังไม่มี production adapters
 
+![ภาพตัวอย่าง Feature-based Clean Architecture แสดง Domain, Application, Presentation และ Infrastructure](docs/images/feature-based-clean-architecture.png)
+
+ภาพใช้ `loyalty_points` เป็นตัวอย่างของ Ports and Adapters ผังด้านล่างใช้ `listings` แสดงตำแหน่งไฟล์จริง
+ดู [Development guidelines](#development-guidelines) สำหรับกฎการวางโค้ดและทิศทางการ import
+
 ```text
-blockchain-reward-platform-be/
-├── pyproject.toml                   # Dependencies และ tool configuration
-├── uv.lock                          # Dependency lockfile
-├── .env*.example                    # ตัวอย่าง environment แยก process
-├── alembic.ini                      # ตั้งค่า database migrations
-├── migrations/                      # Alembic migrations
-├── scripts/                         # ติดตั้งและตรวจระบบ
-├── tests/
-│   ├── conftest.py                  # Fixtures กลาง
-│   ├── unit/                        # Config, logging และ contract reference
-│   └── integration/
-│       ├── auth/                     # Login, concurrency และ session constraints
-│       ├── coupons/                  # HTTP ของ coupon-type draft และ redeem (adapters จำลอง)
-│       ├── listings/                 # HTTP และ database ของ listings
-│       ├── test_migrations.py
-│       └── test_processes.py
-├── docs/                            # Architecture, ผลตรวจ และ SQL เก่า
-├── compose.yaml                     # Docker Compose สำหรับ Backend
-├── Makefile                         # คำสั่ง install/run/check
-└── src/
-    └── marketplace/
-        ├── __init__.py
-        ├── main.py                  # ประกอบแอปและ dependencies ของ features
-        ├── settings.py              # Config แยกตาม process
-        ├── logging_config.py        # JSON logs และปิดข้อมูลลับ
-        ├── worker/                  # Service กลางสำหรับส่งธุรกรรม
-        │   └── main.py              # ตอนนี้ตรวจ config เท่านั้น
-        ├── indexer/                 # Service กลางสำหรับอ่าน chain
-        │   └── main.py              # ตอนนี้ตรวจ config เท่านั้น
-        ├── listings/
-        │   ├── domain/
-        │   │   └── entities.py      # Listing และ Marketplace
-        │   ├── application/
-        │   │   ├── use_cases.py     # Catalog use cases
-        │   │   ├── ports.py         # Interface ของ repository
-        │   │   ├── dto.py           # ผลลัพธ์จาก use cases
-        │   │   └── exceptions.py    # ข้อผิดพลาดระดับ application
-        │   ├── infrastructure/
-        │   │   ├── models.py        # ORM models ของ listings
-        │   │   └── repository.py    # Query ฐานข้อมูลของ listings
-        │   └── presentation/
-        │       ├── router.py        # HTTP endpoints ของ listings
-        │       └── schemas.py       # Request/response models
-        ├── coupons/                 # Coupon-type drafts (ปิดด้วยค่าเริ่มต้น) และ redeem admission
-        │   ├── domain/
-        │   ├── application/
-        │   ├── infrastructure/
-        │   └── presentation/
-        ├── auth/                    # Merchant login, session และ lockout
-        │   ├── domain/
-        │   ├── application/         # Login use case และ TokenSigner port
-        │   ├── infrastructure/      # Argon2id, SQL models และ repository
-        │   └── presentation/        # Login route และ HTTP schemas
-        └── infrastructure/          # ของส่วนกลางที่ features ใช้ร่วมกัน
-            ├── database.py          # Connection และ session
-            └── blockchain/
-                └── abi/             # ABI และ contract reference manifest
+src/marketplace/
+├── main.py                                      # ประกอบ HTTP API และ dependencies
+├── settings.py                                  # Config แยกตาม process
+├── logging_config.py                            # JSON logs และการปิดข้อมูลลับ
+├── infrastructure/                              # Database engine, ตารางส่วนกลาง และ ABI อ้างอิง
+├── auth/                                        # Login, JWT และ refresh session
+├── coupons/                                     # Coupon-type drafts และ redeem
+├── deposits/                                    # คำขอฝากเงินและ payment instructions
+├── merchants/                                   # สมัครร้านค้าและเข้าคิว provision
+├── operations/                                  # อ่านสถานะ ประวัติ และรายละเอียดงาน
+├── point_types/                                 # รับคำขอสร้างชนิดแต้ม
+├── listings/
+│   ├── domain/entities/listing.py               # Listing และ Marketplace
+│   ├── application/interfaces/listings.py       # ListingReader (ABC)
+│   ├── application/use_cases/catalog.py         # Catalog use case
+│   ├── infrastructure/models.py                 # Projection models
+│   ├── infrastructure/repositories/listings.py # SqlListingReader
+│   ├── presentation/router.py
+│   └── presentation/schemas.py
+├── worker/
+│   ├── main.py                                  # ประกอบ dependencies ของ CLI
+│   ├── domain/entities/job.py                   # ClaimedJob และกติกา retry
+│   ├── application/interfaces/outbox.py         # OutboxRepository (ABC)
+│   ├── application/use_cases/process_outbox.py  # OutboxWorker
+│   ├── infrastructure/repositories/outbox.py    # PostgreSQL claims, lease และการปิดงาน
+│   └── presentation/cli.py
+└── indexer/
+    ├── main.py                                  # ประกอบ dependencies ของ CLI
+    ├── domain/entities/deployment.py
+    ├── application/interfaces/deployments.py
+    ├── application/use_cases/check_deployment.py
+    ├── infrastructure/deployment_file.py
+    └── presentation/cli.py
 ```
 
 | ชั้นภายใน feature | หน้าที่ |
@@ -375,19 +368,104 @@ HTTP → listings/presentation → listings/application → listings/infrastruct
 ```
 
 `main.py` ประกอบ dependencies และส่ง repository ให้ use cases ผ่าน
-`listings/application/ports.py` แล้ว inject provider ให้ router
+`listings/application/interfaces/listings.py` แล้ว inject provider ให้ router
 คำสั่ง `reward-api` ชี้ไปที่ `marketplace.main:main` ใน `pyproject.toml`
 
 Dependency ชี้เข้าหาชั้นใน: `presentation → application → domain` ส่วน infrastructure
 ทำตาม ports โดย Domain และ Application ไม่ import FastAPI หรือ SQLAlchemy
-Import Linter ตรวจขอบเขตทั้ง 6 ข้อผ่าน `make check`
+Import Linter ตรวจขอบเขตทั้ง 6 ข้อในทุก package ที่มีเลเยอร์ผ่าน `make check`
 กฎ escrow และ settlement ยังคงอยู่ใน smart contract
 
 `main.py` register ทั้ง coupon-type draft router (เมื่อ `COUPON_TYPES_ENABLED=true`), redeem router
 และ auth router (login + JWKS)
-`coupons/infrastructure/repository.py` เก็บ draft กับ idempotency key ของมันเองในฐานข้อมูล แยกจาก
+`coupons/infrastructure/repositories/coupon_types.py` เก็บ draft กับ idempotency key ของมันเองในฐานข้อมูล แยกจาก
 `infrastructure/mock_auth.py` ที่มี mock token adapter และ `infrastructure/jwt_auth.py` ที่ตรวจ
 access token ES256 สำหรับ AC2 ส่วน mint และ wallet/deployment adapters ของ redeem ยังไม่มี implementation
+
+## Development guidelines
+
+### โครงสร้างสำหรับ feature ใหม่
+
+ใช้ **Feature-Based Clean Architecture** กับทุก feature ใหม่ เก็บโค้ดเฉพาะของ feature ไว้ใต้
+`src/marketplace/<feature_name>/` และจัดให้ครบสี่เลเยอร์ตามผังนี้ ใช้ `src/marketplace/infrastructure/`
+สำหรับกลไกที่หลาย feature ใช้ร่วมกัน เช่น database engine และการจอง idempotency key
+
+```text
+src/marketplace/<feature_name>/
+├── presentation/
+│   ├── router.py
+│   └── schemas.py
+├── application/
+│   ├── use_cases/
+│   │   └── create_<feature_name>.py
+│   └── interfaces/
+│       └── <feature_name>_repository.py
+├── domain/
+│   ├── entities/
+│   │   └── <feature_name>.py
+│   └── exceptions.py
+└── infrastructure/
+    ├── models.py
+    └── repositories/
+        └── postgres_<feature_name>_repository.py
+```
+
+### หน้าที่และขอบเขตของแต่ละเลเยอร์
+
+- **`domain`** เก็บ Entity, Value Object, กฎธุรกิจที่ Backend เป็นเจ้าของ และกฎเปลี่ยนสถานะ
+  ให้ Entity ตรวจความถูกต้องของกฎตัวเองตอนสร้างหรือเปลี่ยนสถานะ เขียนเป็น Pure Python
+  ใช้ Python standard library และโค้ดภายใน Domain แยกการเข้าถึง DB, network, SQLAlchemy, FastAPI และ Pydantic ไปไว้ในเลเยอร์ที่รับผิดชอบ
+- **`application`** ให้ Use Case ประสานขั้นตอน เรียก Domain ให้ตัดสินตามกติกา และเรียก port เมื่อต้องเข้าถึงระบบภายนอก
+  ประกาศ port ใน `application/interfaces/` ด้วย `abc.ABC` และ `@abstractmethod` เช่น `UserRepositoryPort`
+  ใช้ชนิดข้อมูลของ Domain หรือ Application ในสัญญาของ port และเก็บรายละเอียด DB ไว้ใน adapter
+- **`infrastructure`** เก็บ ORM models, คำสั่ง SQL และ adapters ให้ repository สืบทอดและ implement port ที่ประกาศใน Application
+  เช่น `PostgresUserRepositoryAdapter(UserRepositoryPort)` แปลง ORM model เป็น Domain Entity ตอนอ่าน และแปลงกลับตอนเขียน
+- **`presentation`** รับ HTTP request หรือคำสั่ง CLI ใช้ Pydantic หรือ DTO ตรวจรูปแบบ request และ response
+  รับ Use Case ที่ประกอบแล้ว ส่งพารามิเตอร์ให้ Use Case และแปลงผลให้ตรงกับช่องทางเรียกใช้ ให้ Domain เป็นผู้ตัดสินกฎธุรกิจ
+
+### ทิศทางการ import และการประกอบ dependencies
+
+```text
+presentation ──> application ──> domain
+infrastructure ──> application (interfaces)
+infrastructure ──> domain
+```
+
+จำกัด imports ระหว่างเลเยอร์ตามผัง ประกอบ adapter เข้ากับ port ที่ entry point เช่น `marketplace/main.py`
+หรือ CLI entry point จากนั้นส่ง Use Case ที่ประกอบแล้วให้ router หรือ CLI handler
+
+### ทดสอบ Use Case ผ่าน Repository port
+
+- ให้ Use Case รับ repository ผ่าน constructor และให้ `main.py` ประกอบ implementation ตัวอย่าง `Catalog`
+  ในโค้ดปัจจุบันรับ `ListingReader` ซึ่งใช้ `SqlListingReader` อ่านจากฐานข้อมูลเมื่อรันจริง [Catalog](src/marketplace/listings/application/use_cases/catalog.py)
+- ใน unit test ส่ง Fake Repository ที่คืนข้อมูลตามกรณีทดสอบ เช่น คิวว่าง หรือมีงานที่ handler ทำไม่สำเร็จ
+  ใช้ integration test บน PostgreSQL เพื่อตรวจการจองงานพร้อมกัน และการ commit หรือ rollback ของ handler กับผลในคิว
+- `worker/main.py` สร้าง `WorkerOutbox` แล้วส่งให้ `OutboxWorker` ผ่าน constructor
+  ให้ handler กับ `finish()` ใช้ transaction ร่วมกัน ดูการส่ง Fake Repository ใน [Worker unit tests](tests/unit/test_worker_use_case.py)
+  [Worker entry point](src/marketplace/worker/main.py) · [Worker use case](src/marketplace/worker/application/use_cases/process_outbox.py)
+
+### รักษา transaction ของ API และ Worker
+
+- เพิ่ม Alembic migration เมื่อเปลี่ยนตาราง คอลัมน์ หรือ constraint แล้วทดสอบ upgrade จาก schema ก่อนหน้าโดยมีข้อมูลเดิมอยู่ในฐานข้อมูล
+- เมื่อ API รับงานเข้าคิว ให้ commit `Operation` และ `Outbox` ใน transaction เดียวกัน
+  ถ้า endpoint ใช้ `Idempotency-Key` ให้บันทึก response สำหรับคำขอซ้ำใน transaction เดียวกันด้วย
+- เพิ่มชนิดงานใน `OperationKind` ก่อนลงทะเบียน handler ใช้ `WorkerOutbox` เพื่อจองงาน ต่อ lease และบันทึกผล
+  เขียนผลของ handler ผ่าน `connection` ที่ runtime ส่งให้ เพื่อให้ผลและการปิดงาน commit หรือ rollback พร้อมกัน
+  [WorkerOutbox](src/marketplace/worker/infrastructure/repositories/outbox.py) · [Worker runtime](src/marketplace/worker/application/use_cases/process_outbox.py)
+
+### ตรวจ smart contract ก่อนลงมือ
+
+- เทียบ issue กับ contract source, interface หรือ ABI และ tests ของ commit ที่เกี่ยวข้อง ตรวจ deployment, ผู้เรียกและผู้เซ็น,
+  สิทธิ์ของ wallet, การเปลี่ยนสถานะ, event และขอบเขต transaction หากพบความต่าง ให้ระบุไฟล์อ้างอิงก่อนกำหนดขอบเขตงาน [AGENTS.md](AGENTS.md)
+- รักษากฎที่ contract เป็นเจ้าของ เช่น escrow และ settlement ไว้บน chain ให้ Backend ดูแล authentication,
+  wallet authorization, การส่งธุรกรรม, idempotency และการอ่าน events ตามพฤติกรรมที่ยืนยันแล้ว
+
+### ตรวจงานก่อนส่ง PR
+
+1. รัน `make check` เพื่อตรวจ lint, types, import boundaries, API artifacts และ tests
+2. หากแก้ query หรือ transaction ที่พึ่ง PostgreSQL เช่น `FOR UPDATE SKIP LOCKED` ให้รัน integration tests กับ PostgreSQL
+   สำหรับทดสอบที่ตั้งผ่าน `TEST_POSTGRES_URL` ดู [เทสต์ Worker](tests/integration/test_worker_outbox.py)
+3. หากเปลี่ยน API contract ให้อัปเดต OpenAPI และ tests ที่เกี่ยวข้องใน PR เดียวกัน
 
 ## สิ่งที่ยังต้องตัดสินใจ
 

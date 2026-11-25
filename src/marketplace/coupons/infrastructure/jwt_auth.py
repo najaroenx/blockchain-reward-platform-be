@@ -2,7 +2,7 @@ from pathlib import Path
 
 from marketplace.coupons.application.dto import AuthenticatedWallet
 from marketplace.coupons.application.exceptions import RedeemErrorCode, RedeemFailure
-from marketplace.coupons.application.ports import WalletResolver
+from marketplace.coupons.application.interfaces.coupons import WalletResolver
 from marketplace.infrastructure.jwt_auth import InvalidAccessToken, JwtMerchantAuthenticator
 from marketplace.infrastructure.jwt_auth import (
     JwtVerificationConfigurationError as JwtVerificationConfigurationError,

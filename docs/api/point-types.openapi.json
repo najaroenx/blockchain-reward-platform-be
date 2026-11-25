@@ -75,7 +75,7 @@
         "title": "PointTypeRequested",
         "type": "object"
       },
-      "marketplace__point_types__router__ErrorDetail": {
+      "marketplace__point_types__presentation__schemas__ErrorDetail": {
         "properties": {
           "code": {
             "title": "Code",
@@ -93,10 +93,10 @@
         "title": "ErrorDetail",
         "type": "object"
       },
-      "marketplace__point_types__router__ErrorResponse": {
+      "marketplace__point_types__presentation__schemas__ErrorResponse": {
         "properties": {
           "error": {
-            "$ref": "#/components/schemas/marketplace__point_types__router__ErrorDetail"
+            "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorDetail"
           }
         },
         "required": [
@@ -168,7 +168,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/marketplace__point_types__router__ErrorResponse"
+                  "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorResponse"
                 }
               }
             },
@@ -178,7 +178,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/marketplace__point_types__router__ErrorResponse"
+                  "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorResponse"
                 }
               }
             },
@@ -188,7 +188,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/marketplace__point_types__router__ErrorResponse"
+                  "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorResponse"
                 }
               }
             },
@@ -198,7 +198,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/marketplace__point_types__router__ErrorResponse"
+                  "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorResponse"
                 }
               }
             },
@@ -208,7 +208,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/marketplace__point_types__router__ErrorResponse"
+                  "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorResponse"
                 }
               }
             },
@@ -218,7 +218,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/marketplace__point_types__router__ErrorResponse"
+                  "$ref": "#/components/schemas/marketplace__point_types__presentation__schemas__ErrorResponse"
                 }
               }
             },

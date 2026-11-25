@@ -19,7 +19,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
 from marketplace.coupons.application.dto import RedeemCouponPayload
-from marketplace.coupons.infrastructure.admission import SqlRedeemAdmissionStore
+from marketplace.coupons.infrastructure.repositories.admission import SqlRedeemAdmissionStore
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.operation_history import advance_operation, record_operation_created
 from marketplace.infrastructure.operation_models import (

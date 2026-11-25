@@ -23,8 +23,8 @@ from marketplace.coupons.infrastructure.models import CouponTypeModel
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.operation_history import advance_operation, record_operation_created
 from marketplace.infrastructure.operation_models import Operation, Outbox
-from marketplace.merchants.models import Wallet
-from marketplace.point_types.models import PointType
+from marketplace.merchants.infrastructure.models import Wallet
+from marketplace.point_types.infrastructure.models import PointType
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests/fixtures/accounts.json"

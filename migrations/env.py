@@ -2,12 +2,12 @@ from alembic import context
 
 from marketplace.auth.infrastructure import models as auth_models  # noqa: F401
 from marketplace.coupons.infrastructure import models as coupon_models  # noqa: F401
-from marketplace.deposits import store  # noqa: F401
+from marketplace.deposits.infrastructure import models as deposit_models  # noqa: F401
 from marketplace.infrastructure import operation_models  # noqa: F401
 from marketplace.infrastructure.database import Base, Database
 from marketplace.listings.infrastructure import models  # noqa: F401
-from marketplace.merchants import models as merchant_models  # noqa: F401
-from marketplace.point_types import models as point_type_models  # noqa: F401
+from marketplace.merchants.infrastructure import models as merchant_models  # noqa: F401
+from marketplace.point_types.infrastructure import models as point_type_models  # noqa: F401
 from marketplace.settings import load_settings
 
 target_metadata = Base.metadata

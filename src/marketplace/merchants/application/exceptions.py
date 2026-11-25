@@ -1,0 +1,2 @@
+class WalletProviderError(Exception):
+    pass

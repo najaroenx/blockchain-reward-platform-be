@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from marketplace.auth.application.ports import SigningKeyPublisher
+from marketplace.auth.application.interfaces.auth import SigningKeyPublisher
 from marketplace.auth.presentation.router import AuthRoute
 from marketplace.auth.presentation.schemas import ErrorResponse
 

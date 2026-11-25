@@ -12,7 +12,7 @@ from marketplace.coupons.application.dto import (
     RedeemCouponResult,
 )
 from marketplace.coupons.application.exceptions import RedeemErrorCode, RedeemFailure
-from marketplace.coupons.application.use_cases import RedeemCoupons
+from marketplace.coupons.application.use_cases.coupons import RedeemCoupons
 from marketplace.coupons.presentation.router import RedeemDependencies
 from marketplace.main import create_app
 from marketplace.settings import ApiSettings

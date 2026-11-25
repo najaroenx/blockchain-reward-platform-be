@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field
 
-from marketplace.listings.domain.entities import Listing
+from marketplace.listings.domain.entities.listing import Listing
 
 
 def address(value: str) -> str:

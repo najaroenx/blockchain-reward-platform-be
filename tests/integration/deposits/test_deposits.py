@@ -22,12 +22,12 @@ from sqlalchemy import event, func, select, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from marketplace.deposits.payments import (
-    PaymentInstructions,
+from marketplace.deposits.application.exceptions import (
     PaymentProviderError,
     PaymentReferenceConflict,
 )
-from marketplace.deposits.store import Deposit
+from marketplace.deposits.domain.entities.deposit import PaymentInstructions
+from marketplace.deposits.infrastructure.models import Deposit
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.operation_models import IdempotencyKey, Operation, Outbox
 from marketplace.main import create_app

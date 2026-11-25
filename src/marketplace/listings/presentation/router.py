@@ -3,8 +3,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
-from marketplace.listings.application.use_cases import Catalog
-from marketplace.listings.domain.entities import Marketplace
+from marketplace.listings.application.use_cases.catalog import Catalog
+from marketplace.listings.domain.entities.listing import Marketplace
 from marketplace.listings.presentation.schemas import (
     Address,
     DetailResponse,

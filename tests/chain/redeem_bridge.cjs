@@ -143,9 +143,21 @@ async function inspect() {
 
 const commands = { setup, verify, prepare, broadcast: ({ raw }) => broadcast(raw),
   receipt: ({ hash }) => receipt(hash), inspect,
+  couponDates: async ({ typeId }) => {
+    const [start, expire] = await state.coupon.getCouponDates(typeId);
+    return [Number(start), Number(expire)];
+  },
+  couponView: ({ rpcMethod, params }) => {
+    if (!["eth_chainId", "eth_call"].includes(rpcMethod)) throw new Error("Expected a read-only RPC");
+    return network.provider.send(rpcMethod, params);
+  },
   revoke: async () => { await state.coupon.connect(state.buyer).setApprovalForAll(state.operator.address, false); return true; },
   automine: async ({ enabled }) => { await network.provider.send("evm_setAutomine", [enabled]); return true; },
-  mine: async () => { await network.provider.send("evm_mine"); return true; } };
+  mine: async ({ timestamp }) => {
+    if (timestamp !== undefined) await network.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+    await network.provider.send("evm_mine");
+    return true;
+  } };
 let queue = Promise.resolve();
 readline.createInterface({ input: process.stdin }).on("line", line => {
   queue = queue.then(async () => {
