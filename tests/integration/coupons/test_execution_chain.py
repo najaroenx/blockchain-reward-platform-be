@@ -20,14 +20,17 @@ from marketplace.coupons.application.dto import (
     RedeemCouponPayload,
 )
 from marketplace.coupons.application.exceptions import RedeemErrorCode, RedeemFailure
+from marketplace.coupons.application.interfaces.coupons import CouponDeploymentResolver
 from marketplace.coupons.application.interfaces.execution import (
     ChainLog,
     ReceiptCorrelationError,
     RedeemReceipt,
     SignedRedeem,
 )
+from marketplace.coupons.application.use_cases.check_active import CheckCouponActive
 from marketplace.coupons.application.use_cases.coupons import RedeemCoupons
 from marketplace.coupons.infrastructure.receipts import CODE_TOPIC, REDEEMED_TOPIC
+from marketplace.coupons.infrastructure.repositories.activity import RpcCouponActivityReader
 from marketplace.coupons.infrastructure.repositories.admission import (
     SqlRedeemAdmissionStore,
     normalized_payload,
@@ -176,6 +179,31 @@ def chain() -> Iterator[LocalChain]:
         yield bridge
     finally:
         bridge.close()
+
+
+def test_coupon_active_at_both_contract_boundaries(chain: LocalChain) -> None:
+    chain.setup(scenario="not-started")
+
+    class LocalCouponDeployment(CouponDeploymentResolver):
+        def resolve(self, type_id: int) -> CouponDeployment:
+            return CouponDeployment(int(chain.info["chainId"]), chain.info["coupon"])
+
+    check = CheckCouponActive(
+        LocalCouponDeployment(),
+        RpcCouponActivityReader(
+            lambda method, params: chain.rpc("couponView", rpcMethod=method, params=params)
+        ),
+    )
+    start, expire = chain.rpc("couponDates", typeId=1)
+    for timestamp, active in (
+        (start - 1, False),
+        (start, True),
+        (expire, True),
+        (expire + 1, False),
+    ):
+        chain.rpc("mine", timestamp=timestamp)
+        assert check.execute(1) is active
+        assert check.execute(999) is False
 
 
 @dataclass
