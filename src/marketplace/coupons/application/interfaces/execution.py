@@ -19,6 +19,7 @@ class SignedRedeem:
     nonce: int
 
 
+# Carries a mined log and its transaction and block identifiers into receipt correlation.
 @dataclass(frozen=True)
 class ChainLog:
     address: str
@@ -29,6 +30,7 @@ class ChainLog:
     block_hash: str
 
 
+# Carries mined transaction evidence and decoded error details to the redeem projector.
 @dataclass(frozen=True)
 class RedeemReceipt:
     chain_id: int
@@ -44,6 +46,7 @@ class RedeemReceipt:
     error_reason: str | None = None
 
 
+# Defines the chain adapter steps for deployment checks, signing, broadcast, and receipt reads.
 class RedeemChain(ABC):
     @abstractmethod
     def verify(self, payload: RedeemCouponPayload) -> None:
@@ -70,11 +73,13 @@ class ReceiptCorrelationError(ValueError):
     """The receipt cannot prove the expected operation result."""
 
 
+# Defines the persistence boundary for applying a redeem receipt to operation state.
 class RedeemProjectionStore(ABC):
     @abstractmethod
     def project(self, operation_id: str, receipt: RedeemReceipt) -> dict[str, object]: ...
 
 
+# Extends receipt projection with durable signed transaction storage and refusal handling.
 class RedeemExecutionStore(RedeemProjectionStore):
     @abstractmethod
     def payload(self, operation_id: str) -> RedeemCouponPayload: ...

@@ -6,10 +6,12 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import ConnectionPoolEntry, PoolResetState, StaticPool
 
 
+# Provides the shared SQLAlchemy registry and metadata for ORM models and migrations.
 class Base(DeclarativeBase):
     pass
 
 
+# Owns the SQLAlchemy engine and session factory used by the runtime entry points.
 class Database:
     def __init__(self, url: str) -> None:
         parsed = make_url(url)

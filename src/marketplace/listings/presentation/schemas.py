@@ -22,6 +22,7 @@ Address = Annotated[str, AfterValidator(address)]
 Uint256 = Annotated[str, AfterValidator(uint256)]
 
 
+# Maps listing data to the HTTP schema with large integer values represented as strings.
 class ListingResponse(BaseModel):
     listing_id: Uint256
     seller: Address
@@ -46,6 +47,7 @@ class ListingResponse(BaseModel):
         )
 
 
+# Returns a page of listings with its limit, offset, total count, and indexed block.
 class PageResponse(BaseModel):
     items: list[ListingResponse]
     total: int
@@ -54,6 +56,7 @@ class PageResponse(BaseModel):
     indexed_block: int = Field(description="Projection checkpoint, not a live chain balance")
 
 
+# Returns a single listing response with the block it was read from.
 class DetailResponse(BaseModel):
     listing: ListingResponse
     indexed_block: int

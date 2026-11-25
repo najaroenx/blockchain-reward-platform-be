@@ -7,6 +7,7 @@ from marketplace.coupons.application.exceptions import RedeemErrorCode
 from marketplace.coupons.presentation.schemas import RedeemError, RedeemErrorResponse
 
 
+# Maps a redeem failure code to the public HTTP status and message for that failure.
 @dataclass(frozen=True)
 class ErrorSpec:
     status: int

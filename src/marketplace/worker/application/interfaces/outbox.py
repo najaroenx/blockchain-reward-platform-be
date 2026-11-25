@@ -7,6 +7,8 @@ from marketplace.operations.domain.entities.kinds import OperationKind
 from marketplace.worker.domain.entities.job import ClaimedJob
 
 
+# Defines how the Worker claims jobs, renews leases, and finishes or retries attempts.
+# The transaction port lets handlers commit their writes together with acknowledgement.
 class OutboxRepository[Transaction](ABC):
     @abstractmethod
     def transaction(self) -> AbstractContextManager[Transaction]: ...

@@ -6,6 +6,7 @@ from marketplace.merchants.application.interfaces.signup import SignupCredential
 from marketplace.merchants.domain.exceptions import SignupFailure
 
 
+# Implements password hashing and verification with Argon2id and bounded concurrency.
 class SignupCredentials(SignupCredentialPort):
     def __init__(self) -> None:
         self._hasher = PasswordHasher.from_parameters(profiles.RFC_9106_LOW_MEMORY)

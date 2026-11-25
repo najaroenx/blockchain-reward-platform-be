@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 
+# Prevents values outside the contract's uint256 input range from reaching the adapter.
 @dataclass(frozen=True)
 class CouponTypeId:
     value: int

@@ -9,6 +9,7 @@ from marketplace.operations.domain.entities.operation import (
 )
 
 
+# Defines the port for reading actor-scoped operation pages and operation snapshots.
 class OperationReader(ABC):
     @abstractmethod
     def page(

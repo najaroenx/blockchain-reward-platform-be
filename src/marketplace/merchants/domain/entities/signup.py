@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from re import fullmatch
 
 
+# Represents a normalized signup request with merchant and administrator details.
 @dataclass(frozen=True)
 class Signup:
     name: str
@@ -11,6 +12,7 @@ class Signup:
     password: str = field(repr=False)
 
 
+# Holds the public address and key reference used to provision a merchant wallet.
 @dataclass(frozen=True)
 class WalletReference:
     address: bytes

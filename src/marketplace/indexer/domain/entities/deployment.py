@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from marketplace.indexer.domain.exceptions import DeploymentChainMismatch
 
 
+# Holds deployment coordinates and validates the chain before returning the starting block.
 @dataclass(frozen=True)
 class DeploymentStart:
     chain_id: int

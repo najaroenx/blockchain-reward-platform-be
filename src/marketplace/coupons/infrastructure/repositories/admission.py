@@ -26,6 +26,7 @@ def normalized_payload(payload: RedeemCouponPayload) -> dict[str, str]:
     }
 
 
+# Implements redeem admission by committing the operation, outbox, and replay data together.
 class SqlRedeemAdmissionStore(RedeemAdmissionStore):
     def __init__(self, engine: Engine) -> None:
         # A conflicting INSERT may wait for another transaction. Its subsequent

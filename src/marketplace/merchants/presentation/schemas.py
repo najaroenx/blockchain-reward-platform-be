@@ -9,6 +9,7 @@ ShortName = Annotated[
 ]
 
 
+# Validates the administrator details included in the signup request.
 class AdminInput(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
@@ -26,6 +27,7 @@ class AdminInput(BaseModel):
         return value
 
 
+# Validates the HTTP body for merchant signup, including the nested administrator details.
 class CreateMerchant(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
@@ -33,21 +35,25 @@ class CreateMerchant(BaseModel):
     admin: AdminInput
 
 
+# Exposes public administrator details in the signup response.
 class AdminView(BaseModel):
     adminId: str
     email: str
 
 
+# Exposes the merchant wallet address and its readiness in the signup response.
 class WalletView(BaseModel):
     address: Annotated[str, StringConstraints(pattern=r"^0x[0-9a-f]{40}$")]
     ready: Literal[False]
 
 
+# Identifies the queued wallet provisioning operation in the signup response.
 class ProvisioningView(BaseModel):
     operationId: str
     status: Literal["PENDING"]
 
 
+# Returns the merchant, administrator, wallet, and provisioning details after signup.
 class MerchantCreated(BaseModel):
     merchantId: str
     name: str

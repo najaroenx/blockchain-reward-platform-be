@@ -27,6 +27,7 @@ from marketplace.auth.infrastructure.models import (
 from marketplace.auth.infrastructure.transactions import auth_transaction, aware
 
 
+# Implements the login port with SQL transactions for attempts, lockouts, and session writes.
 class SqlLoginStore(LoginStore):
     def __init__(self, sessions: sessionmaker[Session]) -> None:
         self.sessions = sessions

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from marketplace.infrastructure.database import Base
 
 
+# Stores the current operation state, payload, initiator, and event sequence.
 class Operation(Base):
     __tablename__ = "operation"
     __table_args__ = (
@@ -59,6 +60,7 @@ class Operation(Base):
     subject_id: Mapped[str | None] = mapped_column(Text)
 
 
+# Stores the ordered transaction steps and signer roles planned for an operation.
 class OperationPlanStep(Base):
     __tablename__ = "operation_plan_step"
     __table_args__ = (
@@ -74,6 +76,7 @@ class OperationPlanStep(Base):
     signer_role: Mapped[str] = mapped_column(String(24))
 
 
+# Records the events that deferred database constraints require in operation history.
 class OperationEventExpected(Base):
     __tablename__ = "operation_event_expected"
     __table_args__ = (
@@ -93,6 +96,7 @@ class OperationEventExpected(Base):
     to_status: Mapped[str] = mapped_column(String(32))
 
 
+# Persists a sequenced state change in an operation's history.
 class OperationEvent(Base):
     __tablename__ = "operation_event"
     __table_args__ = (
@@ -136,6 +140,7 @@ class OperationEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+# Stores the request fingerprint and original response for replay under the same scope and key.
 class IdempotencyKey(Base):
     __tablename__ = "idempotency_key"
     __table_args__ = (
@@ -167,6 +172,7 @@ class IdempotencyKey(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+# Persists queued operation work and records when the Worker acknowledges it.
 class Outbox(Base):
     __tablename__ = "outbox"
     __table_args__ = (
@@ -181,6 +187,7 @@ class Outbox(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+# Persists the lease, outcome, and retry schedule for one attempt at an outbox job.
 class WorkerAttempt(Base):
     __tablename__ = "worker_attempt"
     __table_args__ = (
@@ -215,6 +222,7 @@ class WorkerAttempt(Base):
     error_type: Mapped[str | None] = mapped_column(String(64))
 
 
+# Persists a transaction step and its signing, submission, and confirmation state.
 class OperationStep(Base):
     __tablename__ = "operation_step"
     __table_args__ = (
@@ -237,6 +245,7 @@ class OperationStep(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+# Stores an indexed chain log under its chain, transaction hash, and log index.
 class ChainEvent(Base):
     __tablename__ = "chain_event"
 
@@ -252,6 +261,7 @@ class ChainEvent(Base):
     mined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+# Stores the indexed outcome of a confirmed or reverted redemption transaction.
 class RedeemResult(Base):
     __tablename__ = "redeem_result"
     __table_args__ = (
@@ -269,6 +279,7 @@ class RedeemResult(Base):
     result: Mapped[dict[str, object]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
 
 
+# Stores the reason the Worker refused a redemption before transaction submission.
 class RedeemRefusal(Base):
     __tablename__ = "redeem_refusal"
 

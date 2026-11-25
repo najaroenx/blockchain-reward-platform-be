@@ -7,6 +7,7 @@ from marketplace.listings.application.interfaces.listings import ListingReader
 from marketplace.listings.domain.entities.listing import Listing, Marketplace
 
 
+# Loads the marketplace checkpoint and serves a page or detail from the listing reader.
 class Catalog:
     def __init__(self, listings: ListingReader) -> None:
         self.listings = listings

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from marketplace.deposits.domain.entities.deposit import PaymentInstructions
 
 
+# Defines how the use case obtains or reuses payment instructions under a stable reference.
 class PaymentProvider(ABC):
     name: str
 

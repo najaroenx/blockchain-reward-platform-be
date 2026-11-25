@@ -15,6 +15,7 @@ def _active_at(timestamp: int) -> ColumnElement[bool]:
     return ListingProjection.active.is_(True) & (ListingProjection.coupon_expires_at >= timestamp)
 
 
+# Implements catalog reads in SQL and evaluates listing activity and coupon expiry at query time.
 class SqlListingReader(ListingReader):
     def __init__(self, session: Session) -> None:
         self.session = session

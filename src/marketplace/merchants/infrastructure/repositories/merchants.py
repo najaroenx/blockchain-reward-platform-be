@@ -21,6 +21,7 @@ from marketplace.merchants.domain.exceptions import SignupFailure
 from marketplace.merchants.infrastructure.models import Merchant, MerchantAdmin, Wallet
 
 
+# Implements SQL preflight checks and persists the signup records in a single transaction.
 class SqlMerchantSignup(SignupRepository):
     def __init__(self, engine: Engine) -> None:
         self.engine = (

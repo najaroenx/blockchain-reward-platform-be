@@ -49,6 +49,7 @@ def redact(value: object, *, depth: int = 0, seen: set[int] | None = None) -> ob
     return f"[{type(value).__name__}]"
 
 
+# Formats runtime logs as JSON and redacts keys that may contain sensitive data.
 class JsonFormatter(logging.Formatter):
     def __init__(self, role: str) -> None:
         super().__init__()

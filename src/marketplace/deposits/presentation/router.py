@@ -35,6 +35,7 @@ ERRORS = {
 }
 
 
+# Carries deposit endpoint failures such as missing credentials to the error handler.
 class RouteFailure(Exception):
     def __init__(self, code: str) -> None:
         self.code = code
@@ -49,6 +50,7 @@ def error_response(code: str) -> JSONResponse:
     )
 
 
+# Maps invalid requests and deposit failures into the public HTTP error envelope.
 class DepositRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

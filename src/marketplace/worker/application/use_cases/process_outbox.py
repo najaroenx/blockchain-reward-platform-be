@@ -14,6 +14,7 @@ type JobHandler[Transaction] = Callable[[Transaction, ClaimedJob], None]
 logger = logging.getLogger(__name__)
 
 
+# Polls for jobs, dispatches them to handlers, renews leases, and coordinates retries.
 class OutboxWorker[Transaction]:
     def __init__(
         self,

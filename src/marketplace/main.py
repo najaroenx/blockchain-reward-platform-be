@@ -72,6 +72,7 @@ from marketplace.point_types.presentation.router import create_router as create_
 from marketplace.settings import ApiSettings, load_settings
 
 
+# Defines the response body for the API liveness endpoint.
 class HealthResponse(BaseModel):
     ok: Literal[True] = True
     role: Literal["api"] = "api"

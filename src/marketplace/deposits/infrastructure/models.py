@@ -7,6 +7,7 @@ from marketplace.deposits.domain.entities.deposit import MAX_SATANG, MIN_SATANG
 from marketplace.infrastructure.database import Base
 
 
+# Persists the merchant, amounts, payment provider reference, and expiry of a deposit.
 class Deposit(Base):
     __tablename__ = "thb_deposit"
     __table_args__ = (

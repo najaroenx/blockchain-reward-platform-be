@@ -10,6 +10,7 @@ from marketplace.auth.infrastructure.models import MerchantAdmin as MerchantAdmi
 from marketplace.infrastructure.database import Base
 
 
+# Persists the merchant wallet's public address, key reference, and ownership.
 class Wallet(Base):
     __tablename__ = "wallet"
     __table_args__ = (

@@ -2,6 +2,7 @@ from threading import Lock
 from time import monotonic
 
 
+# Tracks signup attempts per client and determines when to apply a retry delay.
 class SignupRateLimit:
     def __init__(self, per_minute: int) -> None:
         self.per_minute = per_minute

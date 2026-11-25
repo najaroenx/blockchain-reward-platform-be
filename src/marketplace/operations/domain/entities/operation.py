@@ -12,6 +12,7 @@ def utc(value: datetime) -> datetime:
     return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
 
 
+# Carries the operation's current status and the sequence number of its latest event.
 @dataclass(frozen=True)
 class OperationSummaryRecord:
     id: str
@@ -21,6 +22,7 @@ class OperationSummaryRecord:
     created_at: datetime
 
 
+# Represents one event in the sequenced lifecycle of an operation.
 @dataclass(frozen=True)
 class OperationEventRecord:
     seq: int
@@ -33,6 +35,7 @@ class OperationEventRecord:
     is_snapshot: bool
 
 
+# Groups an operation's summary, history, and steps and determines whether it has finalized.
 @dataclass(frozen=True)
 class OperationSnapshot:
     summary: OperationSummaryRecord

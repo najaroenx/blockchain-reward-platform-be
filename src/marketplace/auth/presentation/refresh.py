@@ -14,12 +14,14 @@ from marketplace.auth.presentation.router import AuthRoute
 from marketplace.auth.presentation.schemas import ErrorResponse
 
 
+# Returns the new access token in JSON while the route sets the refresh token cookie.
 class RefreshResponse(BaseModel):
     accessToken: str = Field(min_length=1, repr=False)
     tokenType: Literal["Bearer"] = "Bearer"
     expiresIn: Literal[900] = 900
 
 
+# Extends auth error handling to clear the refresh cookie for terminal session failures.
 class RefreshRoute(AuthRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

@@ -4,6 +4,7 @@ from marketplace.point_types.domain.entities.point_type import PointTypeDraft
 from marketplace.point_types.domain.exceptions import PointTypeFailure
 
 
+# Validates the request idempotency key and passes the point type draft to the repository port.
 class CreatePointTypeRequest:
     def __init__(self, repository: PointTypeRepository) -> None:
         self.repository = repository

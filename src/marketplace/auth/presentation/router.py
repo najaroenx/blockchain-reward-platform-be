@@ -30,6 +30,7 @@ from marketplace.auth.presentation.schemas import (
 )
 
 
+# Lets the API entry point supply authentication adapters, policy, and the clock.
 @dataclass(frozen=True)
 class AuthDependencies:
     hasher: PasswordVerifier
@@ -66,6 +67,7 @@ def failure_response(refusal: AuthRefusal) -> JSONResponse:
     )
 
 
+# Translates login failures into the public auth response with no-cache headers.
 class AuthRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()

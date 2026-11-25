@@ -9,6 +9,7 @@ from marketplace.deposits.domain.entities.deposit import (
 )
 
 
+# Carries a prepared payment and validated deposit into the repository's atomic save.
 @dataclass(frozen=True)
 class DepositAdmission:
     id: str
@@ -19,6 +20,7 @@ class DepositAdmission:
     created_at: datetime
 
 
+# Defines replay lookup, atomic admission, and reads scoped to the owning merchant.
 class DepositRepository(ABC):
     @abstractmethod
     def replay(self, scope: str, key: str, digest: bytes) -> str | None: ...

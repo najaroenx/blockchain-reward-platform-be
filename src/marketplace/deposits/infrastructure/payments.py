@@ -6,6 +6,7 @@ from marketplace.deposits.application.interfaces.payments import PaymentProvider
 from marketplace.deposits.domain.entities.deposit import PaymentInstructions
 
 
+# Provides local checkout instructions and reuses them when the reference and amount match.
 class MockDepositPayments(PaymentProvider):
     name = "mock"
 

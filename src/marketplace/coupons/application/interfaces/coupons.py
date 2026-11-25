@@ -18,6 +18,7 @@ from marketplace.coupons.application.dto import (
 from marketplace.coupons.domain.entities.coupon import CouponTypeDraft
 
 
+# Defines the repository port for storing drafts, replaying requests, and reading saved drafts.
 class CouponTypeRepository(ABC):
     @abstractmethod
     def create_or_replay(
@@ -38,6 +39,7 @@ class CouponTypeRepository(ABC):
     def list(self, *, limit: int, offset: int) -> tuple[tuple[CouponTypeDraft, ...], int]: ...
 
 
+# Defines how authentication obtains a trusted wallet for the verified user.
 class WalletResolver(ABC):
     @abstractmethod
     def resolve(self, user_id: str) -> AuthenticatedWallet | None:
@@ -45,6 +47,7 @@ class WalletResolver(ABC):
         ...
 
 
+# Defines how a use case finds the verified chain and contract for a coupon type.
 class CouponDeploymentResolver(ABC):
     @abstractmethod
     def resolve(self, type_id: int) -> CouponDeployment:
@@ -52,6 +55,7 @@ class CouponDeploymentResolver(ABC):
         ...
 
 
+# Defines the atomic write of the redeem operation, outbox item, and saved acknowledgement.
 class RedeemAdmissionStore(ABC):
     @abstractmethod
     def admit(

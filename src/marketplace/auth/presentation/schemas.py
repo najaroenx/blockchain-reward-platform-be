@@ -10,6 +10,7 @@ def normalized_email(value: object) -> object:
     return normalize_email(value) if isinstance(value, str) else value
 
 
+# Validates sign-in input and keeps the submitted password in a secret field.
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -17,6 +18,7 @@ class LoginRequest(BaseModel):
     password: SecretStr = Field(min_length=1, max_length=256)
 
 
+# Exposes the merchant administrator identity and merchant status to a login client.
 class SubjectResponse(BaseModel):
     kind: Literal["MERCHANT_ADMIN"] = "MERCHANT_ADMIN"
     id: str
@@ -24,6 +26,7 @@ class SubjectResponse(BaseModel):
     merchantStatus: MerchantStatus
 
 
+# Shapes the login response with an access token, expiry, and authenticated subject.
 class LoginResponse(BaseModel):
     accessToken: str = Field(min_length=1, repr=False)
     tokenType: Literal["Bearer"] = "Bearer"
@@ -31,11 +34,13 @@ class LoginResponse(BaseModel):
     subject: SubjectResponse
 
 
+# Carries the public auth error code, message, and request ID.
 class ErrorDetail(BaseModel):
     code: AuthErrorCode
     message: str
     requestId: str
 
 
+# Wraps authentication errors in the JSON format returned by auth routes.
 class ErrorResponse(BaseModel):
     error: ErrorDetail

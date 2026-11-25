@@ -12,6 +12,7 @@ def normalize_name(value: str) -> str:
     return normalize("NFC", value).strip()
 
 
+# Validates the normalized name, symbol, and decimal places for a new point type.
 @dataclass(frozen=True)
 class PointTypeDraft:
     name: str
