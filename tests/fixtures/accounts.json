@@ -1,0 +1,50 @@
+{
+  "merchants": [
+    {
+      "id": "mch_seed01",
+      "name": "Demo active merchant",
+      "admin": {
+        "id": "mad_seed01",
+        "email": "seed.active@example.com",
+        "password": "demo-only-password"
+      },
+      "wallet": {
+        "id": "wal_seed01",
+        "address": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+        "keyRef": "mock-kms://reward-seed/merchant-01",
+        "provisionOperationId": "op_seed_merchant01"
+      }
+    },
+    {
+      "id": "mch_seed02",
+      "name": "Demo pending merchant",
+      "admin": {
+        "id": "mad_seed02",
+        "email": "seed.pending@example.com",
+        "password": "demo-only-password"
+      },
+      "wallet": null
+    }
+  ],
+  "customers": [
+    {"id": "cus_seed01", "phone": "+12025550101"},
+    {"id": "cus_seed02", "phone": "+12025550102"}
+  ],
+  "pointType": {
+    "id": "pt_seed01",
+    "merchantId": "mch_seed01",
+    "adminId": "mad_seed01",
+    "operationId": "op_seed_point01",
+    "outboxId": "ob_seed_point01",
+    "name": "Demo points",
+    "symbol": "DEMO"
+  },
+  "couponDraft": {
+    "id": "ct_seed01",
+    "name": "Demo coupon draft",
+    "startDate": 1767225600,
+    "expireDate": 2051222400,
+    "faceValue": 100,
+    "totalSupply": 10
+  }
+}
