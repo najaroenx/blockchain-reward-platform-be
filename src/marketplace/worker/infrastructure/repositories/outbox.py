@@ -18,7 +18,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import SQLAlchemyError
 
-from marketplace.infrastructure.operation_models import Operation, Outbox, WorkerAttempt
+from marketplace.infrastructure.operation_models import (
+    Operation,
+    OperationStep,
+    Outbox,
+    WorkerAttempt,
+)
 from marketplace.operations.domain.entities.kinds import OperationKind
 from marketplace.worker.application.exceptions import OutboxUnavailable
 from marketplace.worker.application.interfaces.outbox import OutboxRepository
@@ -41,6 +46,20 @@ def active_lease(job: ClaimedJob) -> ColumnElement[bool]:
     )
 
 
+def recoverable_operation(*, lock_step: bool = False) -> ColumnElement[bool]:
+    # PREPARED already has a hash. SUBMITTED records intent before the RPC call.
+    step = (
+        select(OperationStep.operation_id)
+        .where(OperationStep.operation_id == Operation.id)
+        .correlate(Operation)
+    )
+    prepared = step.where(OperationStep.status == "PREPARED", OperationStep.submitted_at.is_(None))
+    if lock_step:
+        # A submission can lock the step before it updates the operation.
+        prepared = prepared.with_for_update(of=OperationStep, skip_locked=True)
+    return and_(Operation.status == "PENDING", or_(~step.exists(), prepared.exists()))
+
+
 class WorkerOutbox(OutboxRepository[Connection]):
     def __init__(self, engine: Engine) -> None:
         if engine.dialect.name != "postgresql":
@@ -59,9 +78,13 @@ class WorkerOutbox(OutboxRepository[Connection]):
     def claim(
         self, kinds: Sequence[OperationKind], worker_id: str, lease: timedelta
     ) -> ClaimedJob | None:
-        # An unfinished attempt keeps its job reserved until lease recovery schedules a retry.
         latest = (
-            select(WorkerAttempt.attempt_no, WorkerAttempt.outcome, WorkerAttempt.retry_at)
+            select(
+                WorkerAttempt.attempt_no,
+                WorkerAttempt.outcome,
+                WorkerAttempt.retry_at,
+                WorkerAttempt.lease_until,
+            )
             .where(WorkerAttempt.outbox_id == Outbox.id)
             .order_by(WorkerAttempt.attempt_no.desc())
             .limit(1)
@@ -83,6 +106,11 @@ class WorkerOutbox(OutboxRepository[Connection]):
                                 latest.c.outcome == "RETRY",
                                 latest.c.retry_at <= func.clock_timestamp(),
                             ),
+                            and_(
+                                latest.c.outcome.is_(None),
+                                latest.c.lease_until <= func.clock_timestamp(),
+                                recoverable_operation(),
+                            ),
                         ),
                         Operation.kind.in_(kinds),
                     )
@@ -101,7 +129,12 @@ class WorkerOutbox(OutboxRepository[Connection]):
             # A claim could have committed after the selection snapshot but before the row lock.
             previous = (
                 connection.execute(
-                    select(WorkerAttempt.attempt_no, WorkerAttempt.outcome, WorkerAttempt.retry_at)
+                    select(
+                        WorkerAttempt.id,
+                        WorkerAttempt.attempt_no,
+                        WorkerAttempt.outcome,
+                        WorkerAttempt.retry_at,
+                    )
                     .where(WorkerAttempt.outbox_id == outbox_id)
                     .order_by(WorkerAttempt.attempt_no.desc())
                     .limit(1)
@@ -112,8 +145,11 @@ class WorkerOutbox(OutboxRepository[Connection]):
             now = database_time(connection)
             attempt_no = 1
             if previous is not None:
-                number, outcome, retry_at = previous
-                if outcome != "RETRY" or retry_at is None or retry_at > now:
+                previous_id, number, outcome, retry_at = previous
+                if outcome is None:
+                    if not self._expire_attempt(connection, previous_id, operation_id, now):
+                        return None
+                elif outcome != "RETRY" or retry_at is None or retry_at > now:
                     return None
                 attempt_no = number + 1
             job = ClaimedJob(
@@ -130,6 +166,37 @@ class WorkerOutbox(OutboxRepository[Connection]):
                 )
             )
             return job
+
+    def _expire_attempt(
+        self, connection: Connection, attempt_id: str, operation_id: str, now: datetime
+    ) -> bool:
+        operation_is_recoverable = (
+            select(Operation.id)
+            .where(Operation.id == operation_id, recoverable_operation(lock_step=True))
+            .with_for_update(of=Operation, skip_locked=True)
+            .exists()
+        )
+        # Finish may hold the attempt lock while waiting for the outbox row. Skip it.
+        expired = (
+            select(WorkerAttempt.id)
+            .where(
+                WorkerAttempt.id == attempt_id,
+                WorkerAttempt.finished_at.is_(None),
+                WorkerAttempt.lease_until <= now,
+                operation_is_recoverable,
+            )
+            .with_for_update(of=WorkerAttempt, skip_locked=True)
+            .scalar_subquery()
+        )
+        return (
+            connection.scalar(
+                update(WorkerAttempt)
+                .where(WorkerAttempt.id == expired)
+                .values(finished_at=now, outcome="RETRY", retry_at=now, error_type="LeaseExpired")
+                .returning(WorkerAttempt.id)
+            )
+            is not None
+        )
 
     def owns(self, connection: Connection, job: ClaimedJob) -> bool:
         return connection.scalar(select(WorkerAttempt.id).where(active_lease(job))) is not None

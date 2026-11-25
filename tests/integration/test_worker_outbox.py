@@ -4,6 +4,7 @@ import sys
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from threading import Barrier
 from time import monotonic, sleep
 
@@ -14,7 +15,12 @@ from sqlalchemy import Connection, Engine, func, insert, select, text, update
 
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.operation_history import record_operation_created
-from marketplace.infrastructure.operation_models import Operation, Outbox, WorkerAttempt
+from marketplace.infrastructure.operation_models import (
+    Operation,
+    OperationStep,
+    Outbox,
+    WorkerAttempt,
+)
 from marketplace.operations.domain.entities.kinds import OperationKind
 from marketplace.worker.application.use_cases.process_outbox import OutboxWorker
 from marketplace.worker.domain.entities.job import ClaimedJob
@@ -26,6 +32,10 @@ pytestmark = pytest.mark.skipif(
 
 KIND = OperationKind.COUPON_REDEEM
 WORKER_PROGRAM = """
+import os
+from pathlib import Path
+from threading import Event
+
 from sqlalchemy import text
 from marketplace.operations.domain.entities.kinds import OperationKind
 from marketplace.worker.main import main
@@ -33,6 +43,10 @@ from marketplace.worker.main import main
 def handle(connection, job):
     connection.execute(text('INSERT INTO worker_probe (operation_id) VALUES (:id)'),
                        {'id': job.operation_id})
+    marker = os.environ.get("WORKER_CRASH_MARKER")
+    if marker:
+        Path(marker).touch()
+        Event().wait()
 
 main({OperationKind.COUPON_REDEEM: handle})
 """
@@ -88,19 +102,25 @@ def wait_for(predicate: Callable[[], bool], seconds: float = 5) -> None:
         sleep(0.02)
 
 
+def worker_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    environment.pop("WORKER_CRASH_MARKER", None)
+    return {
+        **environment,
+        "RPC_URL": "http://localhost:8545",
+        "CHAIN_ID": "1337",
+        "KMS_KEY_ARN": "worker-test-reference",
+        "KMS_REGION": "ap-southeast-1",
+    }
+
+
 def test_worker_process_polls_existing_outbox_after_upgrade(engine: Engine) -> None:
     command.downgrade(Config("alembic.ini"), "0011_point_type_admission")
     seed_job(engine, "legacy-job")
     seed_job(engine, "unregistered", kind="UNREGISTERED")
     command.upgrade(Config("alembic.ini"), "head")
 
-    env = {
-        **os.environ,
-        "RPC_URL": "http://localhost:8545",
-        "CHAIN_ID": "1337",
-        "KMS_KEY_ARN": "worker-test-reference",
-        "KMS_REGION": "ap-southeast-1",
-    }
+    env = worker_environment()
     workers = [
         subprocess.Popen([sys.executable, "-c", WORKER_PROGRAM], env=env, stderr=subprocess.PIPE)
         for _ in range(2)
@@ -161,6 +181,150 @@ def test_two_workers_claim_once_and_skip_a_locked_row(engine: Engine) -> None:
     assert [job.operation_id for job in jobs if job is not None] == ["available"]
     with engine.connect() as connection:
         assert connection.execute(select(WorkerAttempt.attempt_no)).scalars().all() == [1]
+
+
+def test_claim_recovers_expired_attempt(engine: Engine) -> None:
+    seed_job(engine, "abandoned")
+    outbox = WorkerOutbox(engine)
+    lease = timedelta(seconds=30)
+    abandoned = outbox.claim((KIND,), "first", lease)
+    assert abandoned is not None
+    with engine.begin() as connection:
+        connection.execute(
+            update(WorkerAttempt)
+            .where(WorkerAttempt.id == abandoned.lease_id)
+            .values(lease_until=func.clock_timestamp())
+        )
+
+    barrier = Barrier(2)
+
+    def claim(worker_id: str) -> ClaimedJob | None:
+        barrier.wait(timeout=3)
+        return WorkerOutbox(engine).claim((KIND,), worker_id, lease)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        jobs = [pool.submit(claim, identity) for identity in ("second", "third")]
+        (recovered,) = [job for result in jobs if (job := result.result(timeout=5)) is not None]
+    assert recovered.outbox_id == abandoned.outbox_id
+    assert recovered.attempt_no == 2
+    assert recovered.lease_id != abandoned.lease_id
+    assert not outbox.renew(abandoned, lease)
+    with outbox.transaction() as connection:
+        assert not outbox.owns(connection, abandoned)
+        assert not outbox.finish(connection, abandoned)
+        assert connection.execute(
+            select(WorkerAttempt.outcome, WorkerAttempt.error_type).order_by(
+                WorkerAttempt.attempt_no
+            )
+        ).all() == [("RETRY", "LeaseExpired"), (None, None)]
+
+
+@pytest.mark.parametrize(
+    ("status", "submitting"),
+    [
+        ("PREPARED", False),
+        ("PREPARED", True),
+        ("SUBMITTED", False),
+        ("CONFIRMED", False),
+        ("CHAIN_REVERTED", False),
+    ],
+)
+def test_expired_claim_respects_durable_transaction_stage(
+    engine: Engine, status: str, submitting: bool
+) -> None:
+    seed_job(engine, "chain-work")
+    outbox = WorkerOutbox(engine)
+    lease = timedelta(seconds=30)
+    job = outbox.claim((KIND,), "first", lease)
+    assert job is not None
+
+    now = datetime.now(UTC)
+    with engine.begin() as connection:
+        connection.execute(
+            insert(OperationStep).values(
+                operation_id=job.operation_id,
+                chain_id="1337",
+                signer_address="0x" + "a" * 40,
+                nonce="0",
+                raw_tx=b"prepared test bytes",
+                tx_hash="0x" + "b" * 64,
+                status=status,
+                created_at=now,
+                submitted_at=now if status != "PREPARED" else None,
+            )
+        )
+        connection.execute(
+            update(WorkerAttempt)
+            .where(WorkerAttempt.id == job.lease_id)
+            .values(lease_until=func.clock_timestamp())
+        )
+
+    with engine.begin() as submission:
+        if submitting:
+            submission.execute(
+                update(OperationStep)
+                .where(OperationStep.operation_id == job.operation_id)
+                .values(status="SUBMITTED", submitted_at=now)
+            )
+        replacement = outbox.claim((KIND,), "replacement", lease)
+    if status == "PREPARED" and not submitting:
+        assert replacement is not None
+        assert replacement.attempt_no == 2
+    else:
+        assert replacement is None
+    with engine.connect() as connection:
+        assert connection.scalar(select(OperationStep.status)) == (
+            "SUBMITTED" if submitting else status
+        )
+        assert connection.scalar(select(Outbox.published_at)) is None
+
+
+def test_worker_process_recovers_after_kill_without_repeating_effect(
+    engine: Engine, tmp_path: Path
+) -> None:
+    seed_job(engine, "crash")
+    marker = tmp_path / "handler-in-transaction"
+    env = {**worker_environment(), "WORKER_LEASE_SECONDS": "1"}
+    program = [sys.executable, "-c", WORKER_PROGRAM]
+    doomed = subprocess.Popen(program, env={**env, "WORKER_CRASH_MARKER": str(marker)})
+    try:
+        wait_for(marker.exists, seconds=12)
+    finally:
+        if doomed.poll() is None:
+            doomed.kill()
+        doomed.wait(timeout=5)
+
+    with engine.connect() as connection:
+        remaining = connection.scalar(select(WorkerAttempt.lease_until - func.clock_timestamp()))
+        assert remaining is not None and remaining <= timedelta(seconds=1)
+
+    def published() -> bool:
+        with engine.connect() as connection:
+            return connection.scalar(select(Outbox.published_at)) is not None
+
+    replacement = subprocess.Popen(program, env=env, stderr=subprocess.PIPE)
+    try:
+        wait_for(published, seconds=12)
+    finally:
+        if replacement.poll() is None:
+            replacement.terminate()
+        try:
+            _, stderr = replacement.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            replacement.kill()
+            replacement.communicate()
+            raise
+        assert replacement.returncode == 0, stderr.decode()
+
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT operation_id FROM worker_probe")
+        ).scalars().all() == ["crash"]
+        assert connection.execute(
+            select(WorkerAttempt.outcome, WorkerAttempt.error_type).order_by(
+                WorkerAttempt.attempt_no
+            )
+        ).all() == [("RETRY", "LeaseExpired"), ("SUCCEEDED", None)]
 
 
 def test_retry_history_and_atomic_effects(engine: Engine) -> None:
@@ -228,6 +392,8 @@ def test_expired_lease_cannot_commit_handler_effects(engine: Engine) -> None:
 
     def expire_during_processing(connection: Connection, job: ClaimedJob) -> None:
         add_effect(connection, job)
+        if job.attempt_no != 1:
+            return
         with engine.begin() as independent:
             independent.execute(
                 update(WorkerAttempt)
@@ -237,8 +403,11 @@ def test_expired_lease_cannot_commit_handler_effects(engine: Engine) -> None:
 
     worker = OutboxWorker(WorkerOutbox(engine), {KIND: expire_during_processing}, "worker")
     assert worker.run_once()
-    assert not worker.run_once()
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM worker_probe")) == 0
         assert connection.scalar(select(Outbox.published_at)) is None
         assert connection.scalar(select(WorkerAttempt.outcome)) is None
+    assert worker.run_once()
+    assert not worker.run_once()
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM worker_probe")) == 1
