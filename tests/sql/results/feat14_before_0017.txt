@@ -1,0 +1,67 @@
+       alembic revision       
+------------------------------
+ 0016_feat13_operation_status
+(1 row)
+
+  #   |                                      ข้อรับประกัน                                       |  ผล   |                                                                                                              หมายเหตุ                                                                                                               
+------+--------------------------------------------------------------------------------------+-------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ T1   | cursor แถวที่สอง → ถูกปฏิเสธ                                                             | PASS  | 
+ T2   | L8 · ขยับ cursor โดยไม่มีใครถือ lease → ถูกปฏิเสธ                                          | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T3   | lease หมดอายุแล้วขยับ cursor → ถูกปฏิเสธ                                                  | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T4   | เปลี่ยนเจ้าของ lease พร้อมขยับ cursor → ถูกปฏิเสธ                                           | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T4b  | process ที่ไม่ได้ถือ lease ขยับ cursor → ถูกปฏิเสธ                                           | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T4c  | แย่ง lease ที่ยังไม่หมดอายุ → ถูกปฏิเสธ                                                      | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T4d  | lease หมดอายุ → process อื่นรับต่อได้ · เจ้าของคืน lease ได้                                  | PASS  | 
+ T5   | ถือ lease อยู่ · ขยับ cursor ได้ (20 → 21)                                                | PASS  | 
+ T6   | cursor ถอยจาก 21 ไป 20 โดยไม่มี reorg → ถูกปฏิเสธ                                        | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T6b  | ตั้ง app.reorg_in_progress = true แล้วถอย cursor → ยังถูกปฏิเสธ                            | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T7   | RFD 5 · บล็อก 22 ชี้ parent ที่ไม่ใช่บล็อก 21 → ถูกปฏิเสธ                                      | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T8   | บล็อกแรก (20) ไม่มีตัวก่อนหน้า · รับได้ ไม่มีอะไรให้เทียบ                                        | PASS  | 
+ T9   | block_hash ซ้ำ → ถูกปฏิเสธ                                                              | PASS  | 
+ T10  | บล็อกที่เป็น parent ของตัวเอง → ถูกปฏิเสธ                                                   | PASS  | 
+ T10b | แก้ parent / ลบ / orphan แล้วคืนชีพบล็อก → ถูกปฏิเสธ                                        | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T11  | L8 · event ที่บล็อก 22 แต่ cursor อยู่ 21 → ไม่ผ่าน                                          | ERROR | คาด SQLSTATE 23514 แต่ได้ 42704 · constraint "trg_event_consistent" does not exist
+ T11b | บล็อก 22 แต่ cursor อยู่ 21 → ไม่ผ่าน                                                      | ERROR | คาด SQLSTATE 23514 แต่ได้ 42704 · constraint "trg_block_consistent" does not exist
+ T12  | L8 · บล็อก + event + ขยับ cursor ในธุรกรรมเดียว → ผ่านตอน commit                          | PASS  | 
+ T13  | อ่าน log เดิมซ้ำ (tx_hash, log_index เดิม) → ไม่เกิดแถวซ้ำ                                  | PASS  | 
+ T14  | event ที่บอกว่ารู้จักชนิดแต่ไม่มี args → ถูกปฏิเสธ                                               | PASS  | 
+ T15  | event ที่อ้างบล็อกที่ไม่มีอยู่ → ถูกปฏิเสธ                                                       | PASS  | 
+ T15b | event อ้างบล็อก 22 แต่ใส่เลขบล็อก 21 / เวลาอื่น → ถูกปฏิเสธ                                   | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T15c | event ใหม่บนบล็อก 45 ที่ orphan แล้ว → ถูกปฏิเสธ                                            | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T15d | แก้ data / ที่อยู่ ของ event หรือลบ event → ถูกปฏิเสธ                                        | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T16  | apply ครบ · ร้าน 2+2 · cus_1 1 · marketplace 1 · point 700/300 · acc_cc_1 ใช้โดย cus_1 | ERROR | ถูกปฏิเสธ 42883  · function f_apply_pending() does not exist |  ใช้=(ไม่มีตาราง coupon_redemption)
+ T16b | ที่อยู่ wallet เก็บตัวพิมพ์เล็กแบบเดียว (projector หาเจ้าของจากที่อยู่) · ตัวใหญ่ → ถูกปฏิเสธ           | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T17  | apply ซ้ำไม่นับสอง · ยอด cus_1 ยัง 700                                                   | ERROR | 42883 · function f_apply_event(unknown) does not exist
+ T18  | event ชนิดที่ไม่รู้จัก · apply แล้ว ไม่ค้างคิว ไม่แตะ projection                                 | FAIL  | applied f · holding 0 แถว
+ T19  | คูปอง typeId 99 / point จาก contract ที่ไม่รู้จัก → ถูกปฏิเสธตอน apply                        | ERROR | คาด SQLSTATE 23514 แต่ได้ 42883 · function f_apply_event(unknown) does not exist | คาด SQLSTATE 23514 แต่ได้ 42883 · function f_apply_event(unknown) does not exist
+ T19b | redeemCodes ที่ไม่มีในระบบ / เป็นของชนิด 8 แต่อ้างชนิด 7 → ถูกปฏิเสธตอน apply                   | ERROR | คาด SQLSTATE 23514 แต่ได้ 42883 · function f_apply_event(unknown) does not exist | คาด SQLSTATE 23514 แต่ได้ 42883 · function f_apply_event(unknown) does not exist
+ T20  | RFD 6 · ลบแล้ว replay · coupon_holding เหมือนเดิมทุกคอลัมน์ทุกแถว                           | ERROR | ถูกปฏิเสธ 42883  · function f_replay_projections() does not exist | ต่าง 0 แถว
+ T21  | RFD 6 · ลบแล้ว replay · point_balance เหมือนเดิมทุกคอลัมน์ทุกแถว                            | ERROR | ถูกปฏิเสธ 42883  · function f_replay_projections() does not exist | ต่าง 0 แถว
+ T22  | RFD 6 · coupon_redemption เหมือนเดิม · replay ไม่แตะ coupon_code.state ของงาน redeem    | ERROR | ถูกปฏิเสธ 42883  · function f_replay_projections() does not exist | coupon_code ต่าง 0 · coupon_redemption ไม่มี/ไม่ครบ
+ T23  | projection ไม่มีคอลัมน์เวลาที่ apply · as_of_time มาจากบล็อก · จำนวน event เท่าเดิม           | FAIL  | คอลัมน์: coupon_holding.applied_at, coupon_holding.updated_at
+ T24  | reorg ลึก 1 → ROLLED_BACK · cursor ถอยไป 44 · event หลุด · projection ย้อน              | ERROR | 42883 · function f_handle_reorg(integer, unknown) does not exist
+ T25  | หลัง reorg · projection กลับไปเหมือน snapshot ก่อนบล็อกที่หลุด                               | PASS  | 
+ T26  | สายใหม่เขียนได้ · ความสูง 45 มีสองใบ · tip ชี้ใบใหม่                                         | PASS  | 
+ T26b | บล็อกบนสายหลักใบที่สองที่ความสูง 45 (ใบเดิมยังไม่ orphan) → ถูกปฏิเสธ                            | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T27  | event ที่ final แล้ว orphan ไม่ได้                                                        | FAIL  | ฉากผิด · acc_ce_c1 (บล็อก 23) ยังไม่ final · ERROR: ถูกปฏิเสธ 42883  · function f_mark_finalized() does not exist
+ T27b | ตั้ง final ให้ event ที่บล็อก 45 (ยังไม่ลึกพอ) / ถอน final → ถูกปฏิเสธ                          | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T28  | final เฉพาะบล็อกที่ลึกกว่า N · tip 45 · N 12 → ถึง 33                                      | FAIL  | final ถึง  · ยังไม่ final ตั้งแต่ 
+ T29  | reorg ที่กิน event final → MANUAL_REVIEW · ไม่ orphan ไม่ถอย cursor                       | ERROR | 42883 · function f_handle_reorg(integer, unknown) does not exist
+ T29b | N 40 · reorg ลึก 22 แต่กิน event final → MANUAL_REVIEW (ต้นฉบับ error)                    | FAIL  | 42883 · function f_handle_reorg(integer, unknown) does not exist
+ T30  | ลึก 2 (ตื้นกว่า N) อ้าง MANUAL_REVIEW / ลึก 16 อ้าง ROLLED_BACK → ถูกปฏิเสธ                   | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T31  | depth 99 ไม่ตรงกับช่วงบล็อก 44-45 → ถูกปฏิเสธ                                              | PASS  | 
+ T31b | old_tip / จำนวน event / N ที่ไม่ตรงความจริง → ถูกปฏิเสธ · แก้ / ลบ reorg_log → ถูกปฏิเสธ      | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T31c | acc_idx_2 (ไม่ได้ถือ lease) สั่งจัดการ reorg → ถูกปฏิเสธ                                     | ERROR | คาด SQLSTATE 23514 แต่ได้ 42883 · function f_handle_reorg(integer, unknown) does not exist
+ T32  | N อิงเวลา · วันนี้ 12 · อนาคต 6                                                          | ERROR | 42883 · function f_finality_depth(timestamp with time zone) does not exist
+ T33  | event ที่ orphan แล้ว ทำเครื่องหมาย applied ไม่ได้                                          | FAIL  | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T34  | จ่าย point จาก cus_3 ที่ไม่มียอด → ถูกปฏิเสธ                                                | ERROR | คาด SQLSTATE 23514 แต่ได้ 23505 · duplicate key value violates unique constraint "chain_event_pkey"
+ T35  | cus_2 มี 300 จ่าย 99999 → ถูกปฏิเสธ · คูปองก็เช่นกัน · ยอดติดลบตรงๆ ก็ไม่ได้                     | ERROR | คาด SQLSTATE 23514 แต่ได้ 23505 · duplicate key value violates unique constraint "chain_event_pkey" | คาด SQLSTATE 23514 แต่ได้ 23505 · duplicate key value violates unique constraint "chain_event_pkey" | ฐานข้อมูลยอมให้ทำ · ไม่มีกฎที่ห้าม
+ T36  | ปิดท้าย · commit ผ่าน · ไม่มี event เกิน cursor · สายโซ่บล็อกไม่ขาด                           | PASS  | 
+ T36b | cursor ขยับไป 46 แต่ hash ไม่ใช่บล็อก 46 ที่อ่านมา → ไม่ผ่าน                                   | ERROR | คาด SQLSTATE 23514 แต่ได้ 42704 · constraint "trg_cursor_consistent" does not exist
+(53 rows)
+
+ ผ่าน | ไม่ผ่าน | test รันไม่ได้ | รวม 
+-----+-------+-------------+-----
+  14 |    23 |          16 |  53
+(1 row)
+

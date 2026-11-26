@@ -1,0 +1,62 @@
+  alembic revision   
+---------------------
+ 0017_feat14_indexer
+(1 row)
+
+  #   |                                   ข้อรับประกัน                                   |  ผล  |                                                                   หมายเหตุ                                                                   
+------+-------------------------------------------------------------------------------+------+---------------------------------------------------------------------------------------------------------------------------------------------
+ T1   | งานใหม่มี event แถวแรก (seq 1 · from NULL → PENDING) โดยไม่ต้องเขียนเอง            | PASS | 1:->PENDING
+ T2   | เขียน event แถวที่สองเอง → ถูกปฏิเสธ                                               | PASS | 
+ T3   | เขียน event seq 1 ซ้ำ → ถูกปฏิเสธ                                                 | PASS | 
+ T4   | เขียน event ข้าม seq → ถูกปฏิเสธ                                                  | PASS | 
+ T5   | เขียน event ที่ from_status ไม่ตรงกับความจริง → ถูกปฏิเสธ                             | PASS | 
+ T6   | เปลี่ยนสถานะ → event เกิดเองทุกครั้ง (ไม่มีทางเปลี่ยนเงียบๆ)                             | PASS | 
+ T7   | UPDATE ที่สถานะไม่เปลี่ยน → ไม่เกิด event · เขียน event ลอยๆ → ถูกปฏิเสธ                | PASS | 
+ T8   | เปลี่ยนสถานะพร้อมบอกผู้สั่ง → event ได้ actor และ metadata ครบ                        | PASS | 
+ T9   | เส้นทางปกติเดินได้ครบ PENDING → SUBMITTED → CONFIRMED → FINALIZED                 | PASS | 
+ T10  | FINALIZED → SUBMITTED / ORPHANED → ถูกปฏิเสธ                                    | PASS | 
+ T11  | PENDING ข้ามไป FINALIZED / CHAIN_REVERTED → ถูกปฏิเสธ                            | PASS | 
+ T11b | สร้างงานใหม่ที่สถานะ FINALIZED ทันที → ถูกปฏิเสธ                                      | PASS | 
+ T12  | reorg · CONFIRMED → ORPHANED → SUBMITTED → CONFIRMED → FINALIZED ได้           | PASS | 
+ T13  | seq 1-7 ต่อกัน แม้สถานะถอย (CONFIRMED → ORPHANED) · from_status ตรงกับแถวก่อนทุกแถว | PASS | 1:->PENDING 2:PENDING>SUBMITTED 3:SUBMITTED>CONFIRMED 4:CONFIRMED>ORPHANED 5:ORPHANED>SUBMITTED 6:SUBMITTED>CONFIRMED 7:CONFIRMED>FINALIZED
+ T13b | แก้หรือลบ event → ถูกปฏิเสธ                                                       | PASS | 
+ T14  | endpoint ที่เป็น http:// หรือ ftp:// → ถูกปฏิเสธ                                    | PASS | 
+ T15  | secret_ref เป็นค่าความลับดิบ หรือ kms:// ที่ตามด้วยของแปลก → ถูกปฏิเสธ                  | PASS | 
+ T16  | event_types [] / [null] / [""] / ไม่ใช่รายการ → ถูกปฏิเสธ                         | PASS | 
+ T17  | ส่ง webhook ของ event seq 9 ที่ไม่มีอยู่ → ถูกปฏิเสธ                                   | PASS | 
+ T17b | ส่งงานของร้าน A ไป endpoint ของร้าน B → ถูกปฏิเสธ                                  | PASS | 
+ T17c | endpoint ที่ PAUSED / ไม่ได้สมัคร event ชนิดนี้ → ถูกปฏิเสธ                             | PASS | 
+ T18  | event seq 1 ส่งครั้งแรกไป endpoint เดิมซ้ำ → ถูกปฏิเสธ                               | PASS | 
+ T19  | event เดียวกันไป endpoint ที่สองของร้านเดียวกันได้                                    | PASS | 
+ T20  | delivery_seq ซ้ำต่อ endpoint และงานเดียวกัน → ถูกปฏิเสธ                             | PASS | 
+ T20b | delivery_seq ข้ามจาก 1 ไป 3 → ถูกปฏิเสธ                                          | PASS | 
+ T21  | ยิงลำดับ 2 ขณะลำดับ 1 ยัง PENDING → ถูกปฏิเสธ                                       | PASS | 
+ T22  | ลำดับ 1 SENT แล้ว ลำดับ 2 ยิงได้                                                   | PASS | 
+ T23  | ลำดับ 2 DEAD → ลำดับ 3 ยังยิงได้                                                   | PASS | 
+ T24  | endpoint a2 ยิงลำดับ 1 ของตัวเองได้ แม้ a1 ยังมีงานค้าง                               | PASS | 
+ T24b | ส่งซ้ำ delivery ที่ DEAD เป็นแถวใหม่ (ลำดับถัดไป) ได้                                  | PASS | 
+ T24c | ส่งซ้ำ delivery ที่ SENT → ถูกปฏิเสธ                                                | PASS | 
+ T24d | ส่งซ้ำ delivery ที่ DEAD แต่อ้าง event อื่น → ถูกปฏิเสธ                                 | PASS | 
+ T24e | ส่ง event seq 2 ครั้งแรกซ้ำโดยไม่บอกว่าเป็นการส่งซ้ำ → ถูกปฏิเสธ                         | PASS | 
+ T25  | แก้ delivery ที่ SENT / DEAD → ถูกปฏิเสธ                                           | PASS | 
+ T26  | แก้ payload / signature ของ delivery ที่ยังไม่ส่ง → ถูกปฏิเสธ                         | PASS | 
+ T27  | attempt ที่ไม่มีทั้งคำตอบและ error → ถูกปฏิเสธ                                        | PASS | 
+ T28  | attempt ที่มีทั้งคำตอบและ error → ถูกปฏิเสธ                                          | PASS | 
+ T29  | เพิ่ม attempt โดยตัวนับยังเป็น 0 → ไม่ผ่าน                                            | PASS | 
+ T29b | ขยับตัวนับเป็น 2 โดยไม่มีแถว attempt → ไม่ผ่าน                                        | PASS | 
+ T29c | แก้หรือลบ attempt → ถูกปฏิเสธ                                                     | PASS | 
+ T30  | backoff 1,2,4,8,16,32,60,60 นาที                                               | PASS | 1,2,4,8,16,32,60,60
+ T31  | ไม่มี FK จาก webhook_endpoint / delivery / attempt ไปหา chain_event             | PASS | 0 FK
+ T32  | attempt เก็บคำตอบของร้านและเวลา · สิ่งที่ chain ไม่มีทางรู้                             | PASS | 5/5 คอลัมน์
+ T33  | คิวหยิบเฉพาะแถว PENDING ที่ถึงเวลา (acc_dl_r)                                      | PASS | acc_dl_r
+ T34  | IN_FLIGHT โดยไม่มี claimed_at → ถูกปฏิเสธ                                         | PASS | 
+ T35  | SENT โดยไม่มี sent_at / DEAD โดยไม่มี dead_at → ถูกปฏิเสธ                           | PASS | 
+ T36  | outbox topic ไม่มี .vN → ถูกปฏิเสธ                                                | PASS | 
+ T37  | ทุก operation สถานะตรงกับ event แถวสุดท้าย · commit ผ่าน                           | PASS | 
+(48 rows)
+
+ ผ่าน | ไม่ผ่าน | test รันไม่ได้ | รวม 
+-----+-------+-------------+-----
+  48 |     0 |           0 |  48
+(1 row)
+

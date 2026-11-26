@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from marketplace.auth.infrastructure.models import AuthSession, MerchantAdmin
 from marketplace.infrastructure.database import Database
-from marketplace.infrastructure.legacy_schema import customer, merchant
+from marketplace.infrastructure.legacy_schema import customer, merchant, otp_challenge
 
 PASSWORD_HASH = "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$aaaa"
 
@@ -82,9 +82,26 @@ def test_session_with_two_owners_is_rejected(database_url: str) -> None:
     database = Database(database_url)
     with database.sessions.begin() as session:
         admin_id = _seed_admin(session)
+        now = datetime.now(UTC)
+        # FEAT-02 F7 (migration 0004): a customer exists only through a verified challenge.
+        session.execute(
+            otp_challenge.insert().values(
+                id="ch_1",
+                phone_e164="+66812345678",
+                code_hash="0x" + "f" * 64,
+                pepper_ref="kms://otp-pepper/v1",
+                status="VERIFIED",
+                created_at=now - timedelta(minutes=1),
+                expires_at=now + timedelta(minutes=4),
+                verified_at=now,
+            )
+        )
         session.execute(
             customer.insert().values(
-                id="cus_1", phone_e164="+66812345678", phone_verified_at=datetime.now(UTC)
+                id="cus_1",
+                phone_e164="+66812345678",
+                phone_verified_at=now,
+                verified_challenge_id="ch_1",
             )
         )
 
@@ -113,6 +130,31 @@ def test_session_with_no_owner_is_rejected(database_url: str) -> None:
                 family_id="fam_y",
                 refresh_token_hash="0x" + "e" * 64,
                 expires_at=_future(),
+            )
+        )
+        session.flush()
+
+
+def test_unknown_revoke_reason_is_rejected(database_url: str) -> None:
+    """FEAT-03 T4b (migration 0005): revoked_reason is one of the six known reasons."""
+    database = Database(database_url)
+    with database.sessions.begin() as session:
+        admin_id = _seed_admin(session)
+
+    with (
+        pytest.raises(IntegrityError, match="ck_auth_session_revoked_reason_enum"),
+        database.sessions.begin() as session,
+    ):
+        session.add(
+            AuthSession(
+                id="ses_typo",
+                subject_kind="MERCHANT_ADMIN",
+                merchant_admin_id=admin_id,
+                family_id="fam_z",
+                refresh_token_hash="0x" + "f" * 64,
+                expires_at=_future(),
+                revoked_at=datetime.now(UTC),
+                revoked_reason="REUSED",
             )
         )
         session.flush()

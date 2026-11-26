@@ -137,6 +137,15 @@ class AuthService:
             raise RefreshTokenExpired
 
         assert current.merchant_admin_id is not None
+
+        # FEAT-03 T14: a disabled account keeps no live session. `login` already refuses it, but
+        # a refresh token issued before the account was disabled would otherwise keep minting
+        # access tokens for up to REFRESH_TTL_SECONDS. Revoke every session of the account, not
+        # only this family, so its other devices stop too. Like the reuse branch above, the
+        # caller must catch the exception inside its session scope so the revocation commits.
+        if self.accounts.is_disabled(current.merchant_admin_id):
+            self.sessions.revoke_all_for_admin(current.merchant_admin_id, reason="ADMIN_REVOKED")
+            raise RefreshTokenRevoked
         next_session_id = _short_id("ses")
         next_refresh_token = _new_refresh_token()
         expires_at = datetime.now(UTC) + timedelta(seconds=REFRESH_TTL_SECONDS)

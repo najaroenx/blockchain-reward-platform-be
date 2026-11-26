@@ -1,4 +1,4 @@
-"""Schema-only metadata for Alembic's drift check, mirroring migration 0002.
+"""Schema-only metadata for Alembic's drift check, mirroring migrations 0002 through 0008.
 
 Declares the remaining unclaimed tables created by migrations/versions/0002_legacy_schema_port.py
 (50 originally; `idempotency_key` and the five `auth`-owned tables — `merchant_admin`,
@@ -27,6 +27,50 @@ def _enum_check(column: str, values: tuple[str, ...], name: str) -> sa.CheckCons
 
 
 HOLDER_KIND = ("MERCHANT", "CUSTOMER")
+# migration 0017 · FEAT-14 · projections also hold for the platform and outside addresses
+PROJECTION_HOLDER_KIND = ("MERCHANT", "CUSTOMER", "PLATFORM", "EXTERNAL")
+
+E164 = r"phone_e164 ~ '^\+[1-9][0-9]{7,14}$'"
+
+
+# migration 0006 · FEAT-04 · the four business models of NewPointToken v3 (configureBusiness).
+# Shared by point_type (requested by the merchant) and point_type_chain (read from the chain).
+POINT_LOT_POLICY = "lot_policy IS NULL OR lot_policy IN ('FEFO_ONLY', 'USER_SELECT')"
+POINT_BUSINESS_CONFIG = (
+    "(business_model = 1 AND program_start_at IS NOT NULL"
+    " AND program_expire_at > program_start_at AND lot_policy IS NULL)"
+    " OR (business_model = 2 AND program_start_at IS NULL AND program_expire_at IS NULL"
+    " AND lot_policy = 'FEFO_ONLY')"
+    " OR (business_model = 3 AND program_start_at IS NULL AND program_expire_at IS NULL"
+    " AND lot_policy = 'USER_SELECT')"
+    " OR (business_model = 4 AND program_start_at IS NULL AND program_expire_at IS NULL"
+    " AND lot_policy IS NOT NULL)"
+)
+
+
+THB_ACCOUNTS = ("CUSTOMER_THB", "MERCHANT_THB", "PLATFORM_THB", "ISSUANCE", "ESCROW")
+# an account_id names its account: CUSTOMER_THB:cus_1, ESCROW:pur_1
+THB_ACCOUNT_ID_PREFIX = (
+    "substr(account_id, 1, length(account) + 1) = account || ':'"
+    " AND length(account_id) > length(account) + 1"
+)
+
+
+def _pg_check(condition: str, name: str) -> sa.CheckConstraint:
+    """A CHECK that exists on PostgreSQL only: SQLite has no regex operator."""
+    return sa.CheckConstraint(condition, name=name).ddl_if(dialect="postgresql")
+
+
+def _partial_unique(name: str, *columns: str, where: str) -> sa.Index:
+    """Unique index over the rows matching `where`, with the same predicate on both dialects."""
+    return sa.Index(
+        name,
+        *columns,
+        unique=True,
+        postgresql_where=sa.text(where),
+        sqlite_where=sa.text(where),
+    )
+
 
 # --- tier 0: no foreign keys -------------------------------------------------------------------
 customer = sa.Table(
@@ -40,9 +84,18 @@ customer = sa.Table(
     sa.Column("phone_verified_at", TS, nullable=False),
     sa.Column("tel_hash", sa.LargeBinary(), nullable=True, unique=True),
     sa.Column("disabled_at", TS, nullable=True),
+    # migration 0004 · F7 · the phone comes from the challenge that verified it
+    sa.Column("verified_challenge_id", sa.Text(), nullable=False),
     _enum_check(
         "status", ("PENDING_WALLET", "ACTIVE", "SUSPENDED", "CLOSED"), "ck_customer_status_enum"
     ),
+    sa.UniqueConstraint("verified_challenge_id", name="uq_customer_challenge"),
+    sa.ForeignKeyConstraint(
+        ["verified_challenge_id", "phone_e164"],
+        ["otp_challenge.id", "otp_challenge.phone_e164"],
+        name="fk_customer_verified_challenge",
+    ),
+    _pg_check(E164, "ck_customer_phone_e164"),
 )
 
 merchant = sa.Table(
@@ -105,6 +158,43 @@ operation = sa.Table(
     sa.CheckConstraint(
         "(status = 'FINALIZED') = (finalized_at IS NOT NULL)", name="ck_finalized_consistent"
     ),
+    # migrations 0003 + 0004 · FEAT-01 T6, FEAT-02 T36 · one unfinished provision per subject
+    _partial_unique(
+        "uq_provision_inflight",
+        "kind",
+        "subject_id",
+        where="kind IN ('MERCHANT_PROVISION', 'CUSTOMER_PROVISION')"
+        " AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')",
+    ),
+    # migration 0006 · FEAT-04 T8 · one unfinished deploy per point type
+    _partial_unique(
+        "uq_point_deploy_inflight",
+        "subject_id",
+        where="kind = 'POINT_TYPE_CREATE' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')",
+    ),
+    # migration 0010 · FEAT-07 T15
+    _partial_unique(
+        "uq_coupon_deploy_inflight",
+        "subject_id",
+        where="kind = 'COUPON_TYPE_CREATE' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')",
+    ),
+    # migration 0011 · FEAT-08 T19 · 0012 adds LISTING_BUY (FEAT-09 T13)
+    _partial_unique(
+        "uq_listing_inflight",
+        "subject_id",
+        where="kind IN ('LISTING_CREATE', 'LISTING_DELETE', 'LISTING_BUY')"
+        " AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')",
+    ),
+    # migration 0015 · FEAT-12 T27
+    _partial_unique(
+        "uq_mint_inflight",
+        "subject_id",
+        where="kind = 'THB_MINT' AND status NOT IN ('FINALIZED', 'CHAIN_REVERTED')",
+    ),
+    # migration 0012 · FEAT-09 T8
+    _pg_check(
+        "actor_scope ~ '^(merchant|customer|admin|anon|system):.+$'", "ck_operation_actor_scope"
+    ),
 )
 
 signer = sa.Table(
@@ -135,6 +225,9 @@ wallet = sa.Table(
     _enum_check("owner_kind", ("MERCHANT", "CUSTOMER", "PLATFORM"), "ck_wallet_owner_enum"),
     _enum_check("status", ("REQUESTED", "LIVE", "FAILED"), "ck_wallet_status_enum"),
     sa.CheckConstraint("(status = 'LIVE') = (live_at IS NOT NULL)", name="ck_wallet_live"),
+    _pg_check("kms_key_ref ~ '^kms://[A-Za-z0-9/_.:+=-]+$'", "ck_wallet_kms_key_ref"),
+    # migration 0017 · FEAT-14 · one spelling, so the projector finds the wallet of an address
+    _pg_check("address = lower(address)", "ck_wallet_address_lower"),
     sa.UniqueConstraint("owner_kind", "owner_id", name="uq_wallet_owner"),
 )
 
@@ -173,6 +266,9 @@ raw_block = sa.Table(
     sa.CheckConstraint("block_number > 0", name="ck_raw_block_number_pos"),
     sa.CheckConstraint("tx_count >= 0", name="ck_raw_block_tx_count_nonneg"),
     sa.CheckConstraint("block_hash <> parent_hash", name="ck_not_own_parent"),
+    # migration 0017 · FEAT-14 T26 · one live block per height; orphaned ones are kept
+    _partial_unique("uq_block_live", "block_number", where="orphaned_at IS NULL"),
+    sa.Index("ix_block_number", "block_number"),
 )
 
 indexer_cursor = sa.Table(
@@ -225,6 +321,12 @@ otp_challenge = sa.Table(
     sa.CheckConstraint("(consumed_at IS NOT NULL) = (status = 'CONSUMED')", name="ck_ch_consumed"),
     sa.CheckConstraint("attempts <= max_attempts", name="ck_ch_attempts"),
     sa.CheckConstraint("expires_at > created_at", name="ck_ch_window"),
+    # migration 0004 · target of fk_customer_verified_challenge (F7)
+    sa.UniqueConstraint("id", "phone_e164", name="uq_challenge_id_phone"),
+    # migration 0004 · T14 · one live challenge per phone
+    _partial_unique("uq_challenge_live", "phone_e164", where="status = 'PENDING'"),
+    _pg_check(E164, "ck_otp_challenge_phone_e164"),
+    _pg_check("pepper_ref ~ '^kms://'", "ck_otp_challenge_pepper_ref"),
 )
 
 phone_throttle = sa.Table(
@@ -236,6 +338,7 @@ phone_throttle = sa.Table(
     sa.Column("last_sent_at", TS, nullable=True),
     sa.Column("locked_until", TS, nullable=True),
     sa.CheckConstraint("sent_count >= 0", name="ck_phone_throttle_sent_count_nonneg"),
+    _pg_check(E164, "ck_phone_throttle_phone_e164"),
 )
 
 projection_watermark = sa.Table(
@@ -275,13 +378,14 @@ thb_balance = sa.Table(
     sa.Column("account_id", sa.Text(), primary_key=True),
     sa.Column("amount", AMOUNT, nullable=False, server_default="0"),
     sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
-    _enum_check(
-        "account",
-        ("CUSTOMER_THB", "MERCHANT_THB", "PLATFORM_THB", "ISSUANCE"),
-        "ck_thb_balance_account_enum",
+    # migration 0013 (FEAT-10) adds ESCROW: THB locked in the Vault for one purchase
+    _enum_check("account", THB_ACCOUNTS, "ck_thb_balance_account_enum"),
+    # migration 0013 · FEAT-10 T12b T33 · the 0002 port's numeric ck_balance_sign, as a string rule
+    sa.CheckConstraint(THB_ACCOUNT_ID_PREFIX, name="ck_thb_balance_account_id"),
+    sa.CheckConstraint(
+        "substr(amount, 1, 1) <> '-' OR account = 'ISSUANCE'", name="ck_thb_balance_sign"
     ),
-    # ck_balance_sign (amount >= 0 OR account = 'ISSUANCE') is dropped: amount is a decimal
-    # string; Postgres has no `>=` operator between varchar and integer.
+    _pg_check("f_is_int256(amount, false)", "ck_thb_balance_amount"),
 )
 
 psp_webhook = sa.Table(
@@ -297,6 +401,13 @@ psp_webhook = sa.Table(
     sa.Column("received_at", TS, nullable=False, server_default=sa.func.now()),
     sa.Column("processed_at", TS, nullable=True),
     sa.UniqueConstraint("provider", "provider_event_id", name="uq_psp_event"),
+    # migration 0015 · FEAT-12 T32 · the work queue never holds an unsigned webhook
+    sa.Index(
+        "ix_psp_unprocessed",
+        "received_at",
+        postgresql_where=sa.text("processed_at IS NULL AND signature_ok"),
+        sqlite_where=sa.text("processed_at IS NULL AND signature_ok"),
+    ),
 )
 
 # --- tier 1: depend only on tier 0 ---------------------------------------------------------------
@@ -307,13 +418,22 @@ point_type = sa.Table(
     sa.Column("merchant_id", sa.Text(), sa.ForeignKey("merchant.id"), nullable=False),
     sa.Column("name", sa.Text(), nullable=False),
     sa.Column("symbol", sa.Text(), nullable=False),
-    sa.Column("decimals", sa.SmallInteger(), nullable=False),
+    sa.Column("decimals", sa.SmallInteger(), nullable=False, server_default="18"),
     sa.Column("status", sa.String(40), nullable=False, server_default="REQUESTED"),
     sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
     sa.Column("live_at", TS, nullable=True),
     sa.Column("retired_at", TS, nullable=True),
+    # migration 0006 · T6 · write as lower(trim(:name)) in SQL so it always matches the CHECK
+    sa.Column("name_normalized", sa.Text(), nullable=False),
+    # migration 0006 · the configuration the merchant asks configureBusiness to set
+    sa.Column("business_model", sa.SmallInteger(), nullable=False),
+    sa.Column("program_start_at", TS, nullable=True),
+    sa.Column("program_expire_at", TS, nullable=True),
+    sa.Column("lot_policy", sa.String(20), nullable=True),
     sa.CheckConstraint("length(trim(name)) BETWEEN 1 AND 60", name="ck_point_type_name_len"),
-    sa.CheckConstraint("decimals BETWEEN 0 AND 30", name="ck_point_type_decimals_range"),
+    sa.CheckConstraint("name_normalized = lower(trim(name))", name="ck_point_type_name_normalized"),
+    # migration 0006 · deployPointToken takes no decimals: every v3 point token has 18
+    sa.CheckConstraint("decimals = 18", name="ck_point_type_decimals_fixed"),
     _enum_check("status", ("REQUESTED", "LIVE", "FAILED", "RETIRED"), "ck_point_type_status_enum"),
     sa.CheckConstraint(
         "(status = 'LIVE') = (live_at IS NOT NULL) OR status = 'RETIRED'", name="ck_point_type_live"
@@ -321,6 +441,12 @@ point_type = sa.Table(
     sa.CheckConstraint(
         "(status = 'RETIRED') = (retired_at IS NOT NULL)", name="ck_point_type_retired"
     ),
+    sa.CheckConstraint(POINT_LOT_POLICY, name="ck_point_type_lot_policy_enum"),
+    sa.CheckConstraint(POINT_BUSINESS_CONFIG, name="ck_point_type_business_config"),
+    # migration 0006 · T5 T6 T7 · a FAILED deploy releases its symbol and name
+    _partial_unique("uq_point_symbol", "merchant_id", "symbol", where="status <> 'FAILED'"),
+    _partial_unique("uq_point_name", "merchant_id", "name_normalized", where="status <> 'FAILED'"),
+    _pg_check("symbol ~ '^[A-Z][A-Z0-9]{1,10}$'", "ck_point_type_symbol_format"),
 )
 
 coupon_type = sa.Table(
@@ -337,6 +463,10 @@ coupon_type = sa.Table(
     sa.Column("live_at", TS, nullable=True),
     sa.Column("contract_address", ADDRESS, nullable=True),
     sa.Column("chain_type_id", AMOUNT, nullable=True),
+    # migration 0010 (FEAT-07)
+    sa.Column("name_normalized", sa.Text(), nullable=False),
+    sa.Column("starts_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.Column("issued_count", sa.Integer(), nullable=False, server_default="0"),
     sa.CheckConstraint("length(trim(name)) BETWEEN 1 AND 120", name="ck_coupon_type_name_len"),
     sa.CheckConstraint("total_supply BETWEEN 1 AND 1000000", name="ck_coupon_type_supply_range"),
     _enum_check("status", ("REQUESTED", "LIVE", "FAILED", "RETIRED"), "ck_coupon_type_status_enum"),
@@ -350,6 +480,18 @@ coupon_type = sa.Table(
         name="ck_coupon_type_live",
     ),
     sa.UniqueConstraint("contract_address", "chain_type_id", name="uq_coupon_type_chain"),
+    # migration 0010 · T3 T4 name per merchant, released by a FAILED deploy · T5 · T7 supply
+    sa.CheckConstraint(
+        "name_normalized = lower(trim(name))", name="ck_coupon_type_name_normalized"
+    ),
+    sa.CheckConstraint("expires_at > starts_at", name="ck_coupon_type_window"),
+    sa.CheckConstraint(
+        "issued_count >= 0 AND issued_count <= total_supply", name="ck_coupon_type_within_supply"
+    ),
+    _partial_unique(
+        "uq_coupon_type_name", "merchant_id", "name_normalized", where="status <> 'FAILED'"
+    ),
+    _pg_check("f_is_uint256(face_value, false)", "ck_coupon_type_face_value_uint256"),
 )
 
 webhook_endpoint = sa.Table(
@@ -368,6 +510,13 @@ webhook_endpoint = sa.Table(
     sa.CheckConstraint(
         "max_attempts BETWEEN 1 AND 12", name="ck_webhook_endpoint_max_attempts_range"
     ),
+    # migration 0016 · FEAT-13 T14-T16
+    _pg_check("url ~ '^https://[^/\\s]+'", "ck_webhook_endpoint_url_https"),
+    _pg_check(
+        "length(secret_ref) <= 200 AND secret_ref ~ '^kms://[A-Za-z0-9/_.:+=-]+$'",
+        "ck_webhook_endpoint_secret_ref",
+    ),
+    _pg_check("f_is_event_type_list(event_types)", "ck_webhook_endpoint_event_types"),
 )
 
 thb_deposit = sa.Table(
@@ -388,7 +537,9 @@ thb_deposit = sa.Table(
     sa.Column("expires_at", TS, nullable=False),
     _enum_check("holder_kind", HOLDER_KIND, "ck_thb_deposit_holder_kind_enum"),
     sa.CheckConstraint("amount_satang > 0", name="ck_thb_deposit_satang_pos"),
-    # ck_thb_deposit_base_pos (amount_base > 0) is dropped: decimal-string amount.
+    # migration 0015 · FEAT-12 T5 T7c · the 0002 port dropped amount_base > 0
+    _pg_check("f_is_uint256(amount_base, true)", "ck_thb_deposit_base_uint256"),
+    _partial_unique("uq_deposit_webhook", "webhook_id", where="webhook_id IS NOT NULL"),
     _enum_check(
         "status",
         ("PENDING_PAYMENT", "CONFIRMED", "MINTED", "REVERSED", "FAILED", "EXPIRED"),
@@ -452,6 +603,26 @@ escrow = sa.Table(
     sa.CheckConstraint("coupons_locked > 0", name="ck_escrow_locked_pos"),
     sa.CheckConstraint("coupons_redeemed >= 0", name="ck_escrow_redeemed_nonneg"),
     sa.CheckConstraint("coupons_redeemed <= coupons_locked", name="ck_escrow_count"),
+    # migration 0014 (FEAT-11) · one row per Vault escrow, i.e. per purchase (T9)
+    sa.Column("chain_escrow_id", AMOUNT, nullable=False),
+    sa.Column(
+        "purchase_id",
+        sa.Text(),
+        sa.ForeignKey("purchase.id", name="fk_escrow_purchase"),
+        nullable=False,
+    ),
+    sa.UniqueConstraint("contract_address", "chain_escrow_id", name="uq_escrow_chain"),
+    sa.UniqueConstraint("purchase_id", name="uq_escrow_purchase"),
+    sa.CheckConstraint("(remaining_amount = '0') = (NOT active)", name="ck_escrow_closed"),
+    _pg_check("f_is_uint256(total_amount, true)", "ck_escrow_total_uint256"),
+    _pg_check("f_is_uint256(remaining_amount, false)", "ck_escrow_remaining_uint256"),
+    _pg_check("f_is_uint256(chain_escrow_id, false)", "ck_escrow_chain_id_uint256"),
+    _pg_check("f_is_uint256(chain_token_id, false)", "ck_escrow_token_uint256"),
+    _pg_check(
+        "NOT (f_is_uint256(total_amount, true) AND f_is_uint256(remaining_amount, false))"
+        " OR remaining_amount::numeric <= total_amount::numeric",
+        "ck_escrow_remaining_le_total",
+    ),
 )
 
 chain_event = sa.Table(
@@ -485,6 +656,15 @@ chain_event = sa.Table(
     sa.CheckConstraint("event_name = 'UNKNOWN' OR args IS NOT NULL", name="ck_known_has_args"),
     sa.CheckConstraint("orphaned_at IS NULL OR applied_at IS NULL", name="ck_orphan_not_applied"),
     sa.UniqueConstraint("tx_hash", "log_index", name="uq_chain_event"),
+    # migration 0017 · FEAT-14 · the projector's queue, in chain order
+    sa.Index(
+        "ix_event_unapplied",
+        "block_number",
+        "log_index",
+        postgresql_where=sa.text("applied_at IS NULL AND orphaned_at IS NULL"),
+        sqlite_where=sa.text("applied_at IS NULL AND orphaned_at IS NULL"),
+    ),
+    sa.Index("ix_event_by_block", "block_number"),
 )
 
 customer_session = sa.Table(
@@ -517,6 +697,23 @@ reservation = sa.Table(
         ("POINT_BALANCE", "COUPON_UNIT", "LISTING", "THB_BALANCE", "ESCROW"),
         "ck_reservation_subject_enum",
     ),
+    # migration 0007 · FEAT-05 T8 · single items only: a point balance backs many reservations
+    _partial_unique(
+        "uq_reservation_exclusive",
+        "subject_type",
+        "subject_id",
+        where="released_at IS NULL AND subject_type IN ('COUPON_UNIT', 'LISTING', 'ESCROW')",
+    ),
+    _pg_check("f_is_uint256(amount, true)", "ck_reservation_amount_uint256"),
+    # migration 0013 · FEAT-10 T12 · a THB reservation spends a customer or merchant account
+    _pg_check(
+        "subject_type <> 'THB_BALANCE' OR subject_id ~ '^(CUSTOMER_THB|MERCHANT_THB):.+$'",
+        "ck_reservation_thb_subject",
+    ),
+    _pg_check(
+        "subject_type <> 'POINT_BALANCE' OR subject_id ~ '^[^|]+\\|(MERCHANT|CUSTOMER)\\|[^|]+$'",
+        "ck_reservation_point_subject",
+    ),
 )
 
 outbox = sa.Table(
@@ -530,6 +727,10 @@ outbox = sa.Table(
     sa.Column("payload", sa.JSON(), nullable=False),
     sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
     sa.Column("sent_at", TS, nullable=True),
+    # migration 0003 · T7 · versioned topic · PostgreSQL only (SQLite has no regex operator)
+    sa.CheckConstraint(r"topic ~ '\.v[0-9]+$'", name="ck_outbox_topic_version").ddl_if(
+        dialect="postgresql"
+    ),
 )
 
 operation_event = sa.Table(
@@ -597,6 +798,15 @@ operation_step = sa.Table(
     ),
     sa.UniqueConstraint("operation_id", "step_index", name="uq_step_order"),
     sa.UniqueConstraint("operation_id", "name", name="uq_step_name"),
+    # migration 0003 · T9 · a signer never reuses a nonce
+    _partial_unique(
+        "uq_signer_nonce",
+        "signer_address",
+        "nonce",
+        where="signer_address IS NOT NULL AND nonce IS NOT NULL",
+    ),
+    # migration 0003 · T10 · one tx hash maps to one step
+    _partial_unique("uq_step_txhash", "tx_hash", where="tx_hash IS NOT NULL"),
 )
 
 point_balance = sa.Table(
@@ -607,8 +817,23 @@ point_balance = sa.Table(
     sa.Column("holder_id", sa.Text(), primary_key=True),
     sa.Column("amount", AMOUNT, nullable=False),
     sa.Column("as_of_block", sa.BigInteger(), nullable=False),
-    _enum_check("holder_kind", HOLDER_KIND, "ck_point_balance_holder_kind_enum"),
-    # ck_point_balance_amount_nonneg (amount >= 0) is dropped: decimal-string amount.
+    _enum_check("holder_kind", PROJECTION_HOLDER_KIND, "ck_point_balance_holder_kind_enum"),
+    # migration 0017 · FEAT-14 T35 · a balance row exists only while it is positive
+    _pg_check("f_is_uint256(amount, true)", "ck_point_balance_amount_uint256"),
+)
+
+# migration 0017 · FEAT-14 T22 · which codes the chain says were redeemed (CouponRedeemed carries
+# the code_ref); a projection, unlike coupon_code.state, which the redeem operation writes
+coupon_redemption = sa.Table(
+    "coupon_redemption",
+    Base.metadata,
+    sa.Column("coupon_code_id", sa.Text(), sa.ForeignKey("coupon_code.id"), primary_key=True),
+    sa.Column("redeemer_kind", sa.String(40), nullable=False),
+    sa.Column("redeemer_id", sa.Text(), nullable=False),
+    sa.Column("chain_event_id", sa.Text(), sa.ForeignKey("chain_event.id"), nullable=False),
+    sa.Column("as_of_block", sa.BigInteger(), nullable=False),
+    sa.Column("as_of_time", TS, nullable=False),
+    _enum_check("redeemer_kind", PROJECTION_HOLDER_KIND, "ck_coupon_redemption_redeemer_kind_enum"),
 )
 
 point_type_chain = sa.Table(
@@ -618,36 +843,85 @@ point_type_chain = sa.Table(
     sa.Column("contract_address", ADDRESS, nullable=False, unique=True),
     sa.Column("deployed_block", sa.BigInteger(), nullable=False),
     sa.Column("deployed_tx_hash", HASH, nullable=False),
-    sa.Column("genesis_at", TS, nullable=False),
-    sa.Column("epoch_seconds", sa.Integer(), nullable=False),
-    sa.Column("validity_epochs", sa.Integer(), nullable=False),
     sa.Column("applied_at", TS, nullable=False, server_default=sa.func.now()),
+    # migration 0006 · from BusinessConfigured · NULL until the token is configured
+    sa.Column("business_model", sa.SmallInteger(), nullable=True),
+    sa.Column("program_start_at", TS, nullable=True),
+    sa.Column("program_expire_at", TS, nullable=True),
+    sa.Column("lot_policy", sa.String(20), nullable=True),
+    sa.Column("configured_block", sa.BigInteger(), nullable=True),
+    sa.Column("configured_tx_hash", HASH, nullable=True),
     sa.CheckConstraint("length(contract_address) = 42", name="ck_point_chain_contract_len"),
     sa.CheckConstraint("deployed_block > 0", name="ck_point_chain_block_pos"),
     sa.CheckConstraint("length(deployed_tx_hash) = 66", name="ck_point_chain_tx_hash_len"),
-    sa.CheckConstraint("epoch_seconds > 0", name="ck_point_chain_epoch_pos"),
-    sa.CheckConstraint("validity_epochs > 0", name="ck_point_chain_validity_pos"),
+    sa.CheckConstraint(POINT_LOT_POLICY, name="ck_point_chain_lot_policy_enum"),
+    sa.CheckConstraint(
+        f"business_model IS NULL OR ({POINT_BUSINESS_CONFIG})",
+        name="ck_point_chain_business_config",
+    ),
+    sa.CheckConstraint(
+        "(business_model IS NULL) = (configured_block IS NULL)"
+        " AND (configured_block IS NULL) = (configured_tx_hash IS NULL)",
+        name="ck_point_chain_configured",
+    ),
+    sa.CheckConstraint(
+        "configured_block IS NULL OR configured_block >= deployed_block",
+        name="ck_point_chain_configured_after_deploy",
+    ),
+    sa.CheckConstraint(
+        "configured_tx_hash IS NULL OR length(configured_tx_hash) = 66",
+        name="ck_point_chain_configured_tx_len",
+    ),
 )
 
-point_balance_bucket = sa.Table(
-    "point_balance_bucket",
+# migration 0008 · FEAT-05 · balances as NewPointToken v3 lots (projections of chain_event).
+# Business A has one row with lot_key 'A' holding its program window.
+point_lot = sa.Table(
+    "point_lot",
     Base.metadata,
-    sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column("point_type_id", sa.Text(), sa.ForeignKey("point_type.id"), nullable=False),
-    sa.Column("holder_kind", sa.String(40), nullable=False),
-    sa.Column("holder_id", sa.Text(), nullable=False),
-    sa.Column("epoch_index", sa.Integer(), nullable=False),
+    sa.Column("point_type_id", sa.Text(), sa.ForeignKey("point_type.id"), primary_key=True),
+    sa.Column("lot_key", sa.String(78), primary_key=True),
+    sa.Column("start_at", TS, nullable=False),
+    sa.Column("expire_at", TS, nullable=False),
+    sa.Column("chain_event_id", sa.Text(), sa.ForeignKey("chain_event.id"), nullable=True),
+    sa.Column("applied_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.CheckConstraint("expire_at > start_at", name="ck_point_lot_window"),
+    _pg_check("lot_key = 'A' OR f_is_uint256(lot_key, false)", "ck_point_lot_key_format"),
+)
+
+point_lot_balance = sa.Table(
+    "point_lot_balance",
+    Base.metadata,
+    sa.Column("point_type_id", sa.Text(), primary_key=True),
+    sa.Column("holder_kind", sa.String(40), primary_key=True),
+    sa.Column("holder_id", sa.Text(), primary_key=True),
+    sa.Column("lot_key", sa.String(78), primary_key=True),
     sa.Column("amount", AMOUNT, nullable=False),
-    sa.Column("received_at", TS, nullable=False),
-    sa.Column("expires_at", TS, nullable=False),
+    sa.Column("as_of_block", sa.BigInteger(), nullable=True),
     sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
-    _enum_check("holder_kind", HOLDER_KIND, "ck_point_bucket_holder_kind_enum"),
-    sa.CheckConstraint("epoch_index >= 0", name="ck_point_bucket_epoch_nonneg"),
-    # ck_point_bucket_amount_nonneg (amount >= 0) is dropped: decimal-string amount.
-    sa.CheckConstraint("expires_at > received_at", name="ck_bucket_expiry"),
-    sa.UniqueConstraint(
-        "point_type_id", "holder_kind", "holder_id", "epoch_index", name="uq_bucket"
+    sa.CheckConstraint(
+        "holder_kind IN ('MERCHANT', 'CUSTOMER')", name="ck_point_lot_balance_holder_kind_enum"
     ),
+    sa.ForeignKeyConstraint(
+        ["point_type_id", "lot_key"],
+        ["point_lot.point_type_id", "point_lot.lot_key"],
+        name="fk_point_lot_balance_lot",
+    ),
+    _pg_check("f_is_uint256(amount, false)", "ck_point_lot_balance_amount_uint256"),
+)
+
+# migration 0008 · business D's points waiting for delivery; they do not age
+point_inventory = sa.Table(
+    "point_inventory",
+    Base.metadata,
+    sa.Column("point_type_id", sa.Text(), sa.ForeignKey("point_type.id"), primary_key=True),
+    sa.Column("holder_kind", sa.String(40), primary_key=True),
+    sa.Column("holder_id", sa.Text(), primary_key=True),
+    sa.Column("amount", AMOUNT, nullable=False),
+    sa.Column("as_of_block", sa.BigInteger(), nullable=True),
+    sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.CheckConstraint("holder_kind = 'MERCHANT'", name="ck_point_inventory_holder_kind"),
+    _pg_check("f_is_uint256(amount, false)", "ck_point_inventory_amount_uint256"),
 )
 
 # --- tier 2: depend on tier 0/1 -------------------------------------------------------------------
@@ -674,28 +948,47 @@ ledger_entry = sa.Table(
     sa.Column("amount", AMOUNT, nullable=False),
     sa.Column("memo", sa.Text(), nullable=True),
     sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.Column("point_type_id", sa.Text(), sa.ForeignKey("point_type.id"), nullable=True),
-    sa.Column("holder_kind", sa.String(40), nullable=True),
-    sa.Column("holder_id", sa.Text(), nullable=True),
-    sa.Column("direction", sa.String(40), nullable=True),
-    sa.Column("chain_event_id", sa.Text(), nullable=True),
+    # migration 0007 · THB only (FEAT-10/12): point entries live in point_ledger_entry
     sa.CheckConstraint("entry_seq >= 1", name="ck_ledger_entry_seq_min"),
-    _enum_check(
-        "account",
-        ("CUSTOMER_THB", "MERCHANT_THB", "PLATFORM_THB", "ISSUANCE"),
-        "ck_ledger_entry_account_enum",
-    ),
+    _enum_check("account", THB_ACCOUNTS, "ck_ledger_entry_account_enum"),
     sa.CheckConstraint("asset = 'THB'", name="ck_ledger_entry_asset"),
-    # ck_ledger_entry_amount_nonzero (amount <> 0) is dropped: decimal-string amount.
-    sa.CheckConstraint(
-        "holder_kind IS NULL OR holder_kind IN ('MERCHANT', 'CUSTOMER')",
-        name="ck_ledger_entry_holder_kind_enum",
-    ),
-    sa.CheckConstraint(
-        "direction IS NULL OR direction IN ('DEBIT', 'CREDIT')",
-        name="ck_ledger_entry_direction_enum",
-    ),
     sa.UniqueConstraint("operation_id", "entry_seq", name="uq_ledger_seq"),
+    # migration 0013 · FEAT-10 T12b T18 · non-zero signed amount (0002 dropped the numeric rule)
+    sa.CheckConstraint(THB_ACCOUNT_ID_PREFIX, name="ck_ledger_entry_account_id"),
+    _pg_check("f_is_int256(amount, true)", "ck_ledger_entry_amount"),
+    sa.Index("ix_ledger_account", "account", "account_id"),
+)
+
+# migration 0007 · FEAT-05 T16 · the point ledger: DEBIT = CREDIT per operation, checked at
+# COMMIT by trg_point_ledger_balanced (PostgreSQL)
+point_ledger_entry = sa.Table(
+    "point_ledger_entry",
+    Base.metadata,
+    sa.Column("id", sa.Text(), primary_key=True),
+    sa.Column("operation_id", sa.Text(), sa.ForeignKey("operation.id"), nullable=False),
+    sa.Column("entry_seq", sa.Integer(), nullable=False),
+    sa.Column("point_type_id", sa.Text(), sa.ForeignKey("point_type.id"), nullable=False),
+    sa.Column("holder_kind", sa.String(40), nullable=False),
+    sa.Column("holder_id", sa.Text(), nullable=False),
+    sa.Column("lot_key", sa.String(78), nullable=True),
+    sa.Column("direction", sa.String(10), nullable=False),
+    sa.Column("amount", AMOUNT, nullable=False),
+    sa.Column("chain_event_id", sa.Text(), sa.ForeignKey("chain_event.id"), nullable=True),
+    sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.CheckConstraint("entry_seq >= 1", name="ck_point_ledger_seq_min"),
+    sa.CheckConstraint(
+        "holder_kind IN ('MERCHANT', 'CUSTOMER', 'ISSUANCE', 'INVENTORY')",
+        name="ck_point_ledger_holder_kind_enum",
+    ),
+    sa.CheckConstraint("direction IN ('DEBIT', 'CREDIT')", name="ck_point_ledger_direction_enum"),
+    sa.UniqueConstraint("operation_id", "entry_seq", name="uq_point_ledger_seq"),
+    # migration 0008 · T16b
+    sa.ForeignKeyConstraint(
+        ["point_type_id", "lot_key"],
+        ["point_lot.point_type_id", "point_lot.lot_key"],
+        name="fk_point_ledger_lot",
+    ),
+    _pg_check("f_is_uint256(amount, true)", "ck_point_ledger_amount_uint256"),
 )
 
 listing = sa.Table(
@@ -726,6 +1019,8 @@ listing = sa.Table(
     sa.CheckConstraint(
         "closed_at IS NULL OR closed_at >= active_at", name="ck_listing_close_order"
     ),
+    # migration 0011 · FEAT-08 T8 T20
+    _pg_check("f_is_uint256(unit_price, true)", "ck_listing_unit_price_uint256"),
 )
 
 coupon_type_chain = sa.Table(
@@ -741,6 +1036,8 @@ coupon_type_chain = sa.Table(
     sa.CheckConstraint("deployed_block > 0", name="ck_coupon_type_chain_block_pos"),
     sa.CheckConstraint("length(deployed_tx_hash) = 66", name="ck_coupon_type_chain_tx_hash_len"),
     sa.UniqueConstraint("contract_address", "chain_type_id", name="uq_coupon_chain"),
+    # migration 0010 · FEAT-07 T13b
+    _pg_check("f_is_uint256(chain_type_id, false)", "ck_coupon_type_chain_type_id_uint256"),
 )
 
 webhook_delivery = sa.Table(
@@ -774,6 +1071,10 @@ webhook_delivery = sa.Table(
     sa.CheckConstraint("status <> 'IN_FLIGHT' OR claimed_at IS NOT NULL", name="ck_delivery_claim"),
     sa.CheckConstraint("replay_of IS NULL OR replay_of <> id", name="ck_no_self_replay"),
     sa.UniqueConstraint("endpoint_id", "operation_id", "delivery_seq", name="uq_delivery_seq"),
+    # migration 0016 · FEAT-13 T18 T24e · the first delivery of an event is once; replays exempt
+    _partial_unique(
+        "uq_delivery_event", "endpoint_id", "operation_id", "event_seq", where="replay_of IS NULL"
+    ),
 )
 
 deposit_reversal = sa.Table(
@@ -790,8 +1091,11 @@ deposit_reversal = sa.Table(
     sa.Column("outcome", sa.String(40), nullable=False),
     sa.Column("note", sa.Text(), nullable=True),
     sa.Column("created_at", TS, nullable=False, server_default=sa.func.now()),
-    # ck_deposit_reversal_amount_pos and ck_deposit_reversal_available_nonneg are dropped:
-    # decimal-string amounts.
+    # migration 0015 · FEAT-12 · the 0002 port dropped amount > 0 and available >= 0
+    _pg_check("f_is_uint256(amount_base, true)", "ck_deposit_reversal_amount_uint256"),
+    _pg_check(
+        "f_is_uint256(available_at_reversal, false)", "ck_deposit_reversal_available_uint256"
+    ),
     _enum_check("outcome", ("BURNED", "MANUAL_REVIEW"), "ck_deposit_reversal_outcome_enum"),
 )
 
@@ -807,7 +1111,9 @@ thb_mint = sa.Table(
     sa.Column("tx_hash", HASH, nullable=True),
     sa.Column("minted_block", sa.BigInteger(), nullable=True),
     sa.Column("applied_at", TS, nullable=True),
-    # ck_thb_mint_amount_pos (amount_base > 0) is dropped: decimal-string amount.
+    # migration 0015 · FEAT-12 · the 0002 port dropped amount_base > 0; one Mint event, one mint
+    _pg_check("f_is_uint256(amount_base, true)", "ck_thb_mint_amount_uint256"),
+    sa.Index("uq_thb_mint_chain_event", "chain_event_id", unique=True),
     _enum_check(
         "to_account",
         ("CUSTOMER_THB", "MERCHANT_THB", "PLATFORM_THB", "ISSUANCE"),
@@ -823,18 +1129,30 @@ expiry_notice = sa.Table(
     "expiry_notice",
     Base.metadata,
     sa.Column("id", sa.Text(), primary_key=True),
-    sa.Column(
-        "bucket_id",
-        sa.Text(),
-        sa.ForeignKey("point_balance_bucket.id", ondelete="CASCADE"),
-        nullable=False,
-    ),
     sa.Column("threshold_days", sa.Integer(), nullable=False),
     sa.Column("notified_at", TS, nullable=False, server_default=sa.func.now()),
     sa.Column("channel", sa.String(40), nullable=False),
     sa.CheckConstraint("threshold_days IN (30, 7, 1)", name="ck_expiry_notice_threshold"),
     _enum_check("channel", ("PUSH", "EMAIL", "SMS"), "ck_expiry_notice_channel_enum"),
-    sa.UniqueConstraint("bucket_id", "threshold_days", name="uq_notice"),
+    # migration 0008 · names the holder's balance in a lot (was a point_balance_bucket)
+    sa.Column("point_type_id", sa.Text(), nullable=False),
+    sa.Column("holder_kind", sa.String(40), nullable=False),
+    sa.Column("holder_id", sa.Text(), nullable=False),
+    sa.Column("lot_key", sa.String(78), nullable=False),
+    sa.ForeignKeyConstraint(
+        ["point_type_id", "holder_kind", "holder_id", "lot_key"],
+        [
+            "point_lot_balance.point_type_id",
+            "point_lot_balance.holder_kind",
+            "point_lot_balance.holder_id",
+            "point_lot_balance.lot_key",
+        ],
+        name="fk_expiry_notice_lot_balance",
+        ondelete="CASCADE",
+    ),
+    sa.UniqueConstraint(
+        "point_type_id", "holder_kind", "holder_id", "lot_key", "threshold_days", name="uq_notice"
+    ),
 )
 
 # --- tier 3: depend on tier 2 -----------------------------------------------------------------
@@ -854,6 +1172,10 @@ coupon_code = sa.Table(
     sa.Column("redeemed_at", TS, nullable=True),
     sa.CheckConstraint("length(code_hash) = 66", name="ck_coupon_code_hash_len"),
     sa.CheckConstraint("length(code_ref) = 66", name="ck_coupon_code_ref_len"),
+    # migration 0010 · FEAT-07 T6 · the reference sent on chain is derived from the row id
+    _pg_check(
+        "code_ref = '0x' || encode(sha256(convert_to(id, 'UTF8')), 'hex')", "ck_code_ref_derived"
+    ),
     _enum_check(
         "state", ("ISSUED", "HELD", "REDEEMED", "EXPIRED", "VOIDED"), "ck_coupon_code_state_enum"
     ),
@@ -902,6 +1224,8 @@ listing_chain = sa.Table(
         "closed_block IS NULL OR closed_block >= created_block", name="ck_chain_close_order"
     ),
     sa.UniqueConstraint("contract_address", "chain_listing_id", name="uq_listing_chain"),
+    # migration 0011 · FEAT-08 T17b
+    _pg_check("f_is_uint256(chain_listing_id, false)", "ck_listing_chain_id_uint256"),
 )
 
 purchase = sa.Table(
@@ -936,6 +1260,12 @@ purchase = sa.Table(
     sa.CheckConstraint(
         "NOT (buyer_kind = seller_kind AND buyer_id = seller_id)", name="ck_no_self_trade"
     ),
+    # migration 0013 · FEAT-10 T30 · whole listings only; T8 T20 · the dropped amount rules
+    _partial_unique("uq_purchase_listing", "listing_id", where="status <> 'FAILED'"),
+    _pg_check("f_is_uint256(unit_price, true)", "ck_purchase_unit_price_uint256"),
+    _pg_check("f_is_uint256(total_price, true)", "ck_purchase_total_uint256"),
+    _pg_check("f_is_uint256(fee_amount, false)", "ck_purchase_fee_uint256"),
+    _pg_check("f_is_uint256(net_to_seller, false)", "ck_purchase_net_uint256"),
 )
 
 webhook_delivery_attempt = sa.Table(
@@ -975,14 +1305,13 @@ coupon_holding = sa.Table(
     sa.Column("holder_kind", sa.String(40), nullable=False),
     sa.Column("holder_id", sa.Text(), nullable=False),
     sa.Column("quantity", AMOUNT, nullable=False),
-    sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
-    sa.Column("coupon_code_id", sa.Text(), sa.ForeignKey("coupon_code.id"), nullable=True),
-    sa.Column("chain_event_id", sa.Text(), sa.ForeignKey("chain_event.id"), nullable=True),
-    sa.Column("applied_at", TS, nullable=True, server_default=sa.func.now()),
-    sa.Column("as_of_block", sa.BigInteger(), nullable=True),
-    sa.Column("as_of_time", TS, nullable=True),
-    _enum_check("holder_kind", HOLDER_KIND, "ck_coupon_holding_holder_kind_enum"),
-    # ck_coupon_holding_quantity_nonneg (quantity >= 0) is dropped: decimal-string amount.
+    # migration 0017 · FEAT-14 · an ERC-1155 amount per holder, from the last event that moved
+    # it; no column takes the time of applying (RFD 6 §3.2: a replay gives the same rows)
+    sa.Column("chain_event_id", sa.Text(), sa.ForeignKey("chain_event.id"), nullable=False),
+    sa.Column("as_of_block", sa.BigInteger(), nullable=False),
+    sa.Column("as_of_time", TS, nullable=False),
+    _enum_check("holder_kind", PROJECTION_HOLDER_KIND, "ck_coupon_holding_holder_kind_enum"),
+    _pg_check("f_is_uint256(quantity, true)", "ck_coupon_holding_quantity_uint256"),
     sa.UniqueConstraint("coupon_type_id", "holder_kind", "holder_id", name="uq_holding"),
 )
 

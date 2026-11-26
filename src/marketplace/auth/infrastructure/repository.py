@@ -75,6 +75,12 @@ class SqlAdminAccountReader:
         ).first()
         return _AdminAccountRow(*row) if row is not None else None
 
+    def is_disabled(self, admin_id: str) -> bool:
+        disabled_at = self.session.execute(
+            select(MerchantAdmin.disabled_at).where(MerchantAdmin.id == admin_id)
+        ).first()
+        return disabled_at is None or disabled_at[0] is not None
+
     def touch_last_login(self, admin_id: str) -> None:
         admin = self.session.get(MerchantAdmin, admin_id)
         if admin is not None:

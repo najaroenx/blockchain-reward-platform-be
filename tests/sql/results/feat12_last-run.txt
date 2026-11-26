@@ -1,0 +1,56 @@
+  alembic revision   
+---------------------
+ 0017_feat14_indexer
+(1 row)
+
+  #   |                             ข้อรับประกัน                              |  ผล  |                                                             หมายเหตุ                                                             
+------+--------------------------------------------------------------------+------+---------------------------------------------------------------------------------------------------------------------------------
+ T1   | webhook ที่ผู้ให้บริการ retry (event id เดิม) → ได้ 0 rows                 | PASS | ได้ 0
+ T2   | แก้ raw_body / signature / signature_ok ของ webhook → ถูกปฏิเสธ       | PASS | 
+ T3   | ทำเครื่องหมาย processed_at ได้                                        | PASS | 
+ T4   | 100.50 บาท = 10050 สตางค์ = 100.5e18 base units                     | PASS | 
+ T5   | base ผิดหลักสิบยกกำลัง / ไม่ใช่ตัวเลข → ถูกปฏิเสธ                           | PASS | 
+ T6   | provider_ref ซ้ำ → ถูกปฏิเสธ                                          | PASS | 
+ T7   | ยืนยันการฝากโดยไม่มี webhook → ถูกปฏิเสธ                                 | PASS | 
+ T7b  | ยืนยันด้วย webhook ลายเซ็นไม่ผ่าน / webhook ตีกลับ → ถูกปฏิเสธ               | PASS | 
+ T7c  | webhook ที่ยืนยันการฝากอื่นไปแล้ว ใช้ยืนยันอีกรายการ → ถูกปฏิเสธ                | PASS | 
+ T8   | F4 · mint จากการฝากที่ยัง PENDING_PAYMENT → ถูกปฏิเสธ                   | PASS | 
+ T9   | F4 · mint 2000 บาทจากการฝาก 200 บาท → ถูกปฏิเสธ                      | PASS | 
+ T10  | mint ไปบัญชีของคนอื่น → ถูกปฏิเสธ                                        | PASS | 
+ T10b | thb_mint อ้าง operation ที่ไม่ใช่ THB_MINT ของการฝากนี้ → ถูกปฏิเสธ         | PASS | 
+ T11  | mint ถูกต้อง · ยอดเข้า 100 บาท · ISSUANCE ติดลบเท่ากัน · commit ผ่าน      | PASS | 
+ T12  | mint การฝากที่ MINTED แล้ว → ถูกปฏิเสธด้วยสถานะ                          | PASS | 
+ T12b | สองแถว mint ของการฝากเดียวใน statement เดียว → ชน primary key        | PASS | 
+ T13  | MINTED กลับไป CONFIRMED → ถูกปฏิเสธ                                   | PASS | 
+ T14  | PENDING_PAYMENT ข้ามไป MINTED / สร้างการฝากที่ CONFIRMED ทันที → ถูกปฏิเสธ | PASS | 
+ T15  | ยืนยัน 300 บาทแล้วแก้เป็น 3000 → ถูกปฏิเสธ                                | PASS | 
+ T15b | ตั้ง MINTED ทั้งที่ไม่มีแถว thb_mint → ถูกปฏิเสธ                             | PASS | 
+ T16  | operation ชนิดอื่นเขียน ledger ที่แตะ ISSUANCE → ถูกปฏิเสธ                 | PASS | 
+ T16b | THB_MINT ที่ไม่มี thb_mint หรือการตีกลับรองรับ ขยับ ISSUANCE → ไม่ผ่าน        | PASS | 
+ T16c | mint ของการฝาก 200 บาท แต่ ledger ให้เงินคนอื่น → ไม่ผ่าน                 | PASS | 
+ T17  | F4 · ลบ ISSUANCE = ผลรวมบัญชีอื่นทั้งหมด                                 | PASS | 100000000000000000000 · 100000000000000000000
+ T18  | ledger ของ mint รวมไม่ได้ศูนย์ → ไม่ผ่าน                                 | PASS | 
+ T19  | mint = 1 step                                                      | PASS | 
+ T20  | R2 · SUBMITTED โดยไม่มี raw_tx → ถูกปฏิเสธ                             | PASS | 
+ T21  | ตีกลับขณะยอดพอ → BURNED · ยอดเหลือศูนย์ · การฝาก REVERSED · commit ผ่าน  | PASS | 
+ T22  | ยอดที่ใช้ได้ 0 แต่อ้างว่า BURNED → ถูกปฏิเสธ                                | PASS | 
+ T22b | อ้างยอดที่ใช้ได้ 500 (จริงคือ 0) เพื่อเลือก BURNED → ถูกปฏิเสธ                 | PASS | 
+ T23  | ยอดไม่พอ → MANUAL_REVIEW · ยอดไม่ถูกแตะ                               | PASS | 
+ T23b | การฝากที่ MANUAL_REVIEW ตั้งเป็น REVERSED → ถูกปฏิเสธ                     | PASS | 
+ T24  | ยอดพอ (600) แต่อ้าง MANUAL_REVIEW → ถูกปฏิเสธ                          | PASS | 
+ T25  | ตีกลับการฝากที่ยังไม่ mint → ถูกปฏิเสธ                                     | PASS | 
+ T26  | ตีกลับการฝากเดิมซ้ำ → ถูกปฏิเสธ                                          | PASS | 
+ T27  | สองงาน mint ค้างบนการฝากเดียว → ถูกปฏิเสธ                              | PASS | 
+ T28  | ยอดลูกค้าติดลบ → ถูกปฏิเสธ                                              | PASS | 
+ T29  | ledger amount = 0 → ถูกปฏิเสธ                                        | PASS | 
+ T30  | outbox topic ไม่มี .vN → ถูกปฏิเสธ                                     | PASS | 
+ T31  | อ่าน log ช่วงเดิมซ้ำ → chain_event ไม่เกิดแถวซ้ำ                          | PASS | ได้ 1 · 0
+ T32  | webhook ลายเซ็นไม่ผ่านไม่อยู่ในคิว · คิวมี index กรอง signature_ok          | PASS | CREATE INDEX ix_psp_unprocessed ON public.psp_webhook USING btree (received_at) WHERE ((processed_at IS NULL) AND signature_ok)
+ T33  | ปิดท้าย · ตรวจตอน commit ผ่าน · ledger รวม 0 · ทุกยอดตรงกับ ledger      | PASS | 
+(42 rows)
+
+ ผ่าน | ไม่ผ่าน | test รันไม่ได้ | รวม 
+-----+-------+-------------+-----
+  42 |     0 |           0 |  42
+(1 row)
+

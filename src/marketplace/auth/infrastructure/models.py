@@ -1,7 +1,7 @@
 """ORM models for the five tables this feature claims out of `infrastructure/legacy_schema.py`.
 
-Schema unchanged from migrations/versions/0002_legacy_schema_port.py (plus the `ck_one_subject`
-and `uq_session_parent` restored there in this round) — only which Python object declares it.
+Schema from migrations/versions/0002_legacy_schema_port.py (plus the `ck_one_subject` and
+`uq_session_parent` restored there) and 0005 (`ck_auth_session_revoked_reason_enum`).
 `merchant_admin.merchant_id` and `auth_session.customer_id` stay plain FK columns with no
 `relationship()`: `merchant` and `customer` remain unclaimed placeholders (FEAT-01/FEAT-02 aren't
 built), the same way `idempotency.py` references `operation.id` without mapping `operation`.
@@ -62,6 +62,13 @@ class AuthSession(Base):
         sa.CheckConstraint("expires_at > created_at", name="ck_expiry_after_create"),
         sa.CheckConstraint(
             "(revoked_at IS NULL) = (revoked_reason IS NULL)", name="ck_revoke_has_reason"
+        ),
+        # migration 0005 · FEAT-03 T4b
+        sa.CheckConstraint(
+            "revoked_reason IS NULL OR revoked_reason IN"
+            " ('LOGOUT', 'ROTATED', 'REUSE_DETECTED', 'PASSWORD_CHANGED', 'ADMIN_REVOKED',"
+            " 'EXPIRED')",
+            name="ck_auth_session_revoked_reason_enum",
         ),
         sa.Index(
             "uq_session_parent",

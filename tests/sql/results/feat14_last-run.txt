@@ -1,0 +1,67 @@
+  alembic revision   
+---------------------
+ 0017_feat14_indexer
+(1 row)
+
+  #   |                                      ข้อรับประกัน                                       |  ผล  |             หมายเหตุ              
+------+--------------------------------------------------------------------------------------+------+----------------------------------
+ T1   | cursor แถวที่สอง → ถูกปฏิเสธ                                                             | PASS | 
+ T2   | L8 · ขยับ cursor โดยไม่มีใครถือ lease → ถูกปฏิเสธ                                          | PASS | 
+ T3   | lease หมดอายุแล้วขยับ cursor → ถูกปฏิเสธ                                                  | PASS | 
+ T4   | เปลี่ยนเจ้าของ lease พร้อมขยับ cursor → ถูกปฏิเสธ                                           | PASS | 
+ T4b  | process ที่ไม่ได้ถือ lease ขยับ cursor → ถูกปฏิเสธ                                           | PASS | 
+ T4c  | แย่ง lease ที่ยังไม่หมดอายุ → ถูกปฏิเสธ                                                      | PASS | 
+ T4d  | lease หมดอายุ → process อื่นรับต่อได้ · เจ้าของคืน lease ได้                                  | PASS | 
+ T5   | ถือ lease อยู่ · ขยับ cursor ได้ (20 → 21)                                                | PASS | 
+ T6   | cursor ถอยจาก 21 ไป 20 โดยไม่มี reorg → ถูกปฏิเสธ                                        | PASS | 
+ T6b  | ตั้ง app.reorg_in_progress = true แล้วถอย cursor → ยังถูกปฏิเสธ                            | PASS | 
+ T7   | RFD 5 · บล็อก 22 ชี้ parent ที่ไม่ใช่บล็อก 21 → ถูกปฏิเสธ                                      | PASS | 
+ T8   | บล็อกแรก (20) ไม่มีตัวก่อนหน้า · รับได้ ไม่มีอะไรให้เทียบ                                        | PASS | 
+ T9   | block_hash ซ้ำ → ถูกปฏิเสธ                                                              | PASS | 
+ T10  | บล็อกที่เป็น parent ของตัวเอง → ถูกปฏิเสธ                                                   | PASS | 
+ T10b | แก้ parent / ลบ / orphan แล้วคืนชีพบล็อก → ถูกปฏิเสธ                                        | PASS | 
+ T11  | L8 · event ที่บล็อก 22 แต่ cursor อยู่ 21 → ไม่ผ่าน                                          | PASS | 
+ T11b | บล็อก 22 แต่ cursor อยู่ 21 → ไม่ผ่าน                                                      | PASS | 
+ T12  | L8 · บล็อก + event + ขยับ cursor ในธุรกรรมเดียว → ผ่านตอน commit                          | PASS | 
+ T13  | อ่าน log เดิมซ้ำ (tx_hash, log_index เดิม) → ไม่เกิดแถวซ้ำ                                  | PASS | 
+ T14  | event ที่บอกว่ารู้จักชนิดแต่ไม่มี args → ถูกปฏิเสธ                                               | PASS | 
+ T15  | event ที่อ้างบล็อกที่ไม่มีอยู่ → ถูกปฏิเสธ                                                       | PASS | 
+ T15b | event อ้างบล็อก 22 แต่ใส่เลขบล็อก 21 / เวลาอื่น → ถูกปฏิเสธ                                   | PASS | 
+ T15c | event ใหม่บนบล็อก 45 ที่ orphan แล้ว → ถูกปฏิเสธ                                            | PASS | 
+ T15d | แก้ data / ที่อยู่ ของ event หรือลบ event → ถูกปฏิเสธ                                        | PASS | 
+ T16  | apply ครบ · ร้าน 2+2 · cus_1 1 · marketplace 1 · point 700/300 · acc_cc_1 ใช้โดย cus_1 | PASS | 
+ T16b | ที่อยู่ wallet เก็บตัวพิมพ์เล็กแบบเดียว (projector หาเจ้าของจากที่อยู่) · ตัวใหญ่ → ถูกปฏิเสธ           | PASS | 
+ T17  | apply ซ้ำไม่นับสอง · ยอด cus_1 ยัง 700                                                   | PASS | 
+ T18  | event ชนิดที่ไม่รู้จัก · apply แล้ว ไม่ค้างคิว ไม่แตะ projection                                 | PASS | applied t · holding 4 แถว
+ T19  | คูปอง typeId 99 / point จาก contract ที่ไม่รู้จัก → ถูกปฏิเสธตอน apply                        | PASS | 
+ T19b | redeemCodes ที่ไม่มีในระบบ / เป็นของชนิด 8 แต่อ้างชนิด 7 → ถูกปฏิเสธตอน apply                   | PASS | 
+ T20  | RFD 6 · ลบแล้ว replay · coupon_holding เหมือนเดิมทุกคอลัมน์ทุกแถว                           | PASS | 
+ T21  | RFD 6 · ลบแล้ว replay · point_balance เหมือนเดิมทุกคอลัมน์ทุกแถว                            | PASS | 
+ T22  | RFD 6 · coupon_redemption เหมือนเดิม · replay ไม่แตะ coupon_code.state ของงาน redeem    | PASS | 
+ T23  | projection ไม่มีคอลัมน์เวลาที่ apply · as_of_time มาจากบล็อก · จำนวน event เท่าเดิม           | PASS | 
+ T24  | reorg ลึก 1 → ROLLED_BACK · cursor ถอยไป 44 · event หลุด · projection ย้อน              | PASS | 
+ T25  | หลัง reorg · projection กลับไปเหมือน snapshot ก่อนบล็อกที่หลุด                               | PASS | 
+ T26  | สายใหม่เขียนได้ · ความสูง 45 มีสองใบ · tip ชี้ใบใหม่                                         | PASS | 
+ T26b | บล็อกบนสายหลักใบที่สองที่ความสูง 45 (ใบเดิมยังไม่ orphan) → ถูกปฏิเสธ                            | PASS | 
+ T27  | event ที่ final แล้ว orphan ไม่ได้                                                        | PASS | 
+ T27b | ตั้ง final ให้ event ที่บล็อก 45 (ยังไม่ลึกพอ) / ถอน final → ถูกปฏิเสธ                          | PASS | 
+ T28  | final เฉพาะบล็อกที่ลึกกว่า N · tip 45 · N 12 → ถึง 33                                      | PASS | final ถึง 27 · ยังไม่ final ตั้งแต่ 45
+ T29  | reorg ที่กิน event final → MANUAL_REVIEW · ไม่ orphan ไม่ถอย cursor                       | PASS | 
+ T29b | N 40 · reorg ลึก 22 แต่กิน event final → MANUAL_REVIEW (ต้นฉบับ error)                    | PASS | 
+ T30  | ลึก 2 (ตื้นกว่า N) อ้าง MANUAL_REVIEW / ลึก 16 อ้าง ROLLED_BACK → ถูกปฏิเสธ                   | PASS | 
+ T31  | depth 99 ไม่ตรงกับช่วงบล็อก 44-45 → ถูกปฏิเสธ                                              | PASS | 
+ T31b | old_tip / จำนวน event / N ที่ไม่ตรงความจริง → ถูกปฏิเสธ · แก้ / ลบ reorg_log → ถูกปฏิเสธ      | PASS | 
+ T31c | acc_idx_2 (ไม่ได้ถือ lease) สั่งจัดการ reorg → ถูกปฏิเสธ                                     | PASS | 
+ T32  | N อิงเวลา · วันนี้ 12 · อนาคต 6                                                          | PASS | 
+ T33  | event ที่ orphan แล้ว ทำเครื่องหมาย applied ไม่ได้                                          | PASS | 
+ T34  | จ่าย point จาก cus_3 ที่ไม่มียอด → ถูกปฏิเสธ                                                | PASS | 
+ T35  | cus_2 มี 300 จ่าย 99999 → ถูกปฏิเสธ · คูปองก็เช่นกัน · ยอดติดลบตรงๆ ก็ไม่ได้                     | PASS | 
+ T36  | ปิดท้าย · commit ผ่าน · ไม่มี event เกิน cursor · สายโซ่บล็อกไม่ขาด                           | PASS | 
+ T36b | cursor ขยับไป 46 แต่ hash ไม่ใช่บล็อก 46 ที่อ่านมา → ไม่ผ่าน                                   | PASS | 
+(53 rows)
+
+ ผ่าน | ไม่ผ่าน | test รันไม่ได้ | รวม 
+-----+-------+-------------+-----
+  53 |     0 |           0 |  53
+(1 row)
+

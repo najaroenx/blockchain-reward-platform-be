@@ -16,6 +16,10 @@ class AdminAccount(Protocol):
 class AdminAccountReader(Protocol):
     def find_by_email(self, email_normalized: str) -> AdminAccount | None: ...
 
+    def is_disabled(self, admin_id: str) -> bool:
+        """True if the account is disabled, or no longer exists."""
+        ...
+
     def touch_last_login(self, admin_id: str) -> None: ...
 
 
