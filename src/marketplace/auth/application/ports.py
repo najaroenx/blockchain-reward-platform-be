@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Protocol
 
-from auth.application.dto import StoredSession
-from auth.domain.entities import Subject
+from marketplace.auth.application.dto import StoredSession
+from marketplace.auth.domain.entities import Subject
 
 
 class AdminAccount(Protocol):

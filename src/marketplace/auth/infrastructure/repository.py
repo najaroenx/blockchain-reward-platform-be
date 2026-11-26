@@ -6,8 +6,8 @@ from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from auth.application.dto import StoredSession
-from auth.infrastructure.models import (
+from marketplace.auth.application.dto import StoredSession
+from marketplace.auth.infrastructure.models import (
     AuthEvent,
     AuthSession,
     LoginAttempt,

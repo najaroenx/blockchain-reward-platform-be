@@ -5,8 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
-from auth.application.dto import LoginResult
-from auth.application.exceptions import (
+from marketplace.auth.application.dto import LoginResult
+from marketplace.auth.application.exceptions import (
     AccountLocked,
     InvalidCredentials,
     RefreshTokenExpired,
@@ -15,10 +15,10 @@ from auth.application.exceptions import (
     SessionCompromised,
     TokenVerificationError,
 )
-from auth.application.ports import TokenVerifier
-from auth.application.use_cases import AuthService, LoginContext
-from auth.domain.entities import Subject
-from auth.presentation.schemas import (
+from marketplace.auth.application.ports import TokenVerifier
+from marketplace.auth.application.use_cases import AuthService, LoginContext
+from marketplace.auth.domain.entities import Subject
+from marketplace.auth.presentation.schemas import (
     ErrorDetail,
     ErrorResponse,
     LoginRequest,

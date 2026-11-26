@@ -1,7 +1,7 @@
 """Proves, at the database layer, the two guarantees restored in migration 0002 this round:
 `uq_session_parent` (a token rotates into exactly one child) and `ck_one_subject` (a session
 belongs to exactly one subject). These must hold without any application code involved — see
-migrations/versions/0002_legacy_schema_port.py and src/auth/infrastructure/models.py.
+migrations/versions/0002_legacy_schema_port.py and src/marketplace/auth/infrastructure/models.py.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from auth.infrastructure.models import AuthSession, MerchantAdmin
+from marketplace.auth.infrastructure.models import AuthSession, MerchantAdmin
 from marketplace.infrastructure.database import Database
 from marketplace.infrastructure.legacy_schema import customer, merchant
 

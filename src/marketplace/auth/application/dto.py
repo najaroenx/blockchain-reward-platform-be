@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from auth.domain.entities import Subject, SubjectKind
+from marketplace.auth.domain.entities import Subject, SubjectKind
 
 
 @dataclass(frozen=True)

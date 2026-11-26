@@ -12,13 +12,7 @@ for command in (
     [str(BIN / "ruff"), "format", "--check", "."],
     [str(BIN / "mypy")],
     [str(BIN / "lint-imports")],
-    [
-        str(BIN / "pytest"),
-        "--cov=marketplace",
-        "--cov=auth",
-        "--cov=idempotency",
-        "--cov-report=term-missing",
-    ],
+    [str(BIN / "pytest"), "--cov=marketplace", "--cov-report=term-missing"],
 ):
     print("Running:", " ".join(command), flush=True)
     subprocess.run(command, cwd=ROOT, check=True)
